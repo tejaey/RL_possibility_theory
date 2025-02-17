@@ -75,9 +75,6 @@ class td_loss_ensemble_grad(td_loss_meta):
                 i
             ] + self.ALPHA * candidate_poss[i]
 
-        # Optionally, re-normalize the possibilities so that they sum to 1.
-        total = sum(online_qnet.possibility)
-        online_qnet.possibility = [p / total for p in online_qnet.possibility]
         if self.normalise:
             s = sum(online_qnet.possibility)
             online_qnet.possibility = [x / s for x in online_qnet.possibility]
