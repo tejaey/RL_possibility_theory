@@ -1,8 +1,10 @@
+from typing import Literal
 import torch, random, math
 from torch import FloatType, optim
 import numpy as np
 import torch.nn as nn
 from abc import ABC, abstractmethod
+import logging
 
 
 def unpack_batch(batch):
@@ -27,6 +29,13 @@ class td_loss_meta(ABC):
 
 
 class td_loss_ensemble_grad(td_loss_meta):
+    """
+    Attributes:
+        ALPHA (float): EMA parameter (good range: 0.1 - 0.3)
+        GAMMA (float): reward discount in the environment
+        BETA (float): Weight of the grad_norm in 'exp(-loss.item() - BETA * grad_norm)' (good range: 0.01)
+    """
+
     def __init__(self, GAMMA, ALPHA, BETA, normalise):
         super().__init__()
         self.ALPHA = ALPHA
@@ -86,14 +95,14 @@ class td_loss_ensemble(td_loss_meta):
         self,
         GAMMA,
         ALPHA,
-        BETA,
-        possibility_update,
+        possibility_update: Literal[
+            "mle", "no_update", "avg_likelihood_ema", "mle_max_update"
+        ],
         use_ensemble_min: bool = False,
         normalise: bool = False,
     ):
         super().__init__()
         self.ALPHA = ALPHA
-        self.BETA = BETA
         self.GAMMA = GAMMA
         self.possibility_update = possibility_update
         self.normalise = normalise
@@ -137,33 +146,47 @@ class td_loss_ensemble(td_loss_meta):
             loss.backward()
             optimizer.step()
 
-        max_likelihood = max(
-            [
-                likelihoods[i] * online_qnet.possibility[i]
-                for i in range(len(likelihoods))
-            ]
-        )
-        for i in range(online_qnet.num_ensemble):
-            online_qnet.possibility[i] = (
-                online_qnet.possibility[i] * likelihoods[i] / max_likelihood
-            )
-
         match self.possibility_update:
             case "mle":
-                avg_likelihood = sum(likelihoods) / len(likelihoods)
-                for i in range(online_qnet.num_ensemble):
-                    candidate = likelihoods[i] / avg_likelihood
-                    online_qnet.possibility[i] = min(
-                        online_qnet.possibility[i] * candidate, 1
+                max_likelihood = (
+                    max(
+                        [
+                            likelihoods[i] * online_qnet.possibility[i]
+                            for i in range(len(likelihoods))
+                        ]
                     )
+                    + 1e-8
+                )
+                for i in range(online_qnet.num_ensemble):
+                    online_qnet.possibility[i] = (
+                        online_qnet.possibility[i] * likelihoods[i] / max_likelihood
+                    )
+
+            case "mle_max_update":
+                max_likelihood = (
+                    max(
+                        [
+                            likelihoods[i] * online_qnet.possibility[i]
+                            for i in range(len(likelihoods))
+                        ]
+                    )
+                    + 1e-8
+                )
+                for i in range(online_qnet.num_ensemble):
+                    # we should not need this min here
+                    online_qnet.possibility[i] = min(
+                        max(
+                            0.99 * online_qnet.possibility[i],
+                            likelihoods[i] / max_likelihood,
+                        ),
+                        1,
+                    )
+
             case "avg_likelihood_ema":
                 # model weights remain close to 1.
-                avg_likelihood = sum(likelihoods) / len(likelihoods) + 0.000001
+                avg_likelihood = sum(likelihoods) / len(likelihoods) + 1e-8
                 for i in range(online_qnet.num_ensemble):
-                    candidate = (
-                        likelihoods[i] / avg_likelihood
-                    )  # >1 if better than average, <1 if worse
-                    # Update with EMA: this increases possibility if candidate > 1, and decreases if < 1
+                    candidate = likelihoods[i] / avg_likelihood
                     online_qnet.possibility[i] = max(
                         min(
                             (1 - self.ALPHA) * online_qnet.possibility[i]
@@ -172,6 +195,14 @@ class td_loss_ensemble(td_loss_meta):
                         ),
                         0.1,
                     )
+            # case "avg_likelihood_ema2":
+            #     # model weights remain close to 1.
+            #     avg_likelihood = sum(likelihoods) / len(likelihoods) + 1e-8
+            #     for i in range(online_qnet.num_ensemble):
+            #         candidate = likelihoods[i] / avg_likelihood
+            #         online_qnet.possibility[i] = min(
+            #             online_qnet.possibility[i] * candidate, 1
+            #         )
             case "no_update":
                 online_qnet.possibility = [1] * len(online_qnet.possibility)
             case _:
@@ -187,6 +218,9 @@ class td_loss_ensemble(td_loss_meta):
         # online_qnet.possibility = [p / total for p in online_qnet.possibility]
         if self.normalise:
             s = sum(online_qnet.possibility)
+            if s == 0:
+                logging.error(online_qnet.possibility)
+                s += 1e-16
             online_qnet.possibility = [x / s for x in online_qnet.possibility]
         return float(np.mean(losses))
 
