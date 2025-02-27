@@ -84,6 +84,7 @@ class td_loss_ensemble_grad(td_loss_meta):
                 i
             ] + self.ALPHA * candidate_poss[i]
 
+        online_qnet.possibility = [max(i, 0.001) for i in online_qnet.possibility]
         if self.normalise:
             s = sum(online_qnet.possibility)
             online_qnet.possibility = [x / s for x in online_qnet.possibility]
@@ -120,7 +121,9 @@ class td_loss_ensemble(td_loss_meta):
                 next_q_values = torch.amin(
                     torch.stack(
                         [
-                            target_qnet.qnets[i](states_t).max(dim=1, keepdim=True)[0]
+                            target_qnet.qnets[i](next_states_t).max(
+                                dim=1, keepdim=True
+                            )[0]
                             for i in range(target_qnet.num_ensemble)
                         ]
                     ),
@@ -216,6 +219,7 @@ class td_loss_ensemble(td_loss_meta):
         #     online_qnet.possibility[i] = max(min(online_qnet.possibility[i]* candidate, 1), 0.1)
         # total = sum(online_qnet.possibility)
         # online_qnet.possibility = [p / total for p in online_qnet.possibility]
+        online_qnet.possibility = [max(i, 0.001) for i in online_qnet.possibility]
         if self.normalise:
             s = sum(online_qnet.possibility)
             if s == 0:

@@ -39,15 +39,30 @@ class ensemble_action_weighted_sum(SelectActionMeta):
         super().__init__(action_dim)
 
     def call(self, state, online_qnet) -> int:
-        state_t = torch.FloatTensor(state).unsqueeze(0)
-        q_values_list = [qnet(state_t) for qnet in online_qnet.qnets]
-        poss = np.array(online_qnet.possibility)
-        poss_normalized = poss / poss.sum() + 1e-8
-        q_values_tensor = torch.stack(q_values_list)
-        weighted_q_values = (q_values_tensor.squeeze(1) * poss_normalized[:, None]).sum(
-            dim=0
-        )
-        return int(weighted_q_values.argmax().item())
+        with torch.no_grad():
+            # Convert state to tensor and add batch dimension.
+            state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
+
+            # Compute Q-values from each ensemble network.
+            q_values = torch.stack(
+                [qnet(state_tensor) for qnet in online_qnet.qnets], dim=0
+            ).squeeze(1)
+
+            # Normalize the possibility weights.
+            possibilities = np.array(online_qnet.possibility)
+            possibilities_normalized = possibilities / (possibilities.sum() + 1e-8)
+
+            # Convert the normalized possibilities to a tensor (ensuring same device as q_values).
+            poss_tensor = torch.tensor(
+                possibilities_normalized, dtype=torch.float32, device=q_values.device
+            )
+
+            # Compute the weighted sum of Q-values.
+            weighted_q = (q_values * poss_tensor[:, None]).sum(dim=0)
+
+            # Choose the action with the highest weighted Q-value.
+            action = int(torch.argmax(weighted_q).item())
+        return action
 
 
 class ensemble_action_majority_voting(SelectActionMeta):
