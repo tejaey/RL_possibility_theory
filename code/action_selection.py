@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 
-class SelectActionMeta(ABC):
+class Qnet_SelectActionMeta(ABC):
     def __init__(self, action_dim) -> None:
         self.action_dim = action_dim
 
@@ -23,7 +23,7 @@ class SelectActionMeta(ABC):
         pass
 
 
-class single_dqn_eps_greedy(SelectActionMeta):
+class single_dqn_eps_greedy(Qnet_SelectActionMeta):
     def __init__(self, action_dim) -> None:
         super().__init__(action_dim)
 
@@ -34,7 +34,7 @@ class single_dqn_eps_greedy(SelectActionMeta):
         return q_values.argmax().item()
 
 
-class ensemble_action_weighted_sum(SelectActionMeta):
+class ensemble_action_weighted_sum(Qnet_SelectActionMeta):
     def __init__(self, action_dim) -> None:
         super().__init__(action_dim)
 
@@ -65,7 +65,7 @@ class ensemble_action_weighted_sum(SelectActionMeta):
         return action
 
 
-class ensemble_action_majority_voting(SelectActionMeta):
+class ensemble_action_majority_voting(Qnet_SelectActionMeta):
     def __init__(self, action_dim) -> None:
         super().__init__(action_dim)
 
@@ -77,3 +77,14 @@ class ensemble_action_majority_voting(SelectActionMeta):
             best_action = q_values.argmax().item()
             votes[best_action] += online_qnet.possibility[i]
         return int(np.argmax(votes))
+
+
+class AC_SelectAction:
+    def __init__(self, action_dim) -> None:
+        self.action_dim = action_dim
+
+    def __call__(self, state, online_actor, eps=0.1) -> int:
+        state_t = torch.FloatTensor(state).unsqueeze(0)
+        action = online_actor(state_t).cpu().data.numpy()[0]
+        action += np.random.normal(0, eps, size=self.action_dim)
+        return action

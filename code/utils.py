@@ -41,6 +41,8 @@ def action_array(action, action_dim):
 
 
 def soft_update(target, online, tau):
+    if target is None:
+        return
     for target_param, online_param in zip(target.parameters(), online.parameters()):
         target_param.data.copy_(
             tau * online_param.data + (1.0 - tau) * target_param.data
@@ -74,3 +76,61 @@ def plot_improved_rewards(reward_dict, smoothing_window=10, game="GAME NAME"):
     print(f"Plot saved as: {filename}")
 
     plt.show()
+
+
+def visualize_agent(env, online_qnet, select_action, discrete, delay=30):
+    """
+    Runs one episode using the given online_qnet and captures frames for visualization.
+    Then creates and shows an animation.
+    """
+    frames = []
+    obs, _ = env.reset()
+    done = False
+    while not done:
+        frame = env.render()
+        frames.append(frame)
+        action = select_action(state=obs, online_qnet=online_qnet, eps=0.0)
+        if not discrete:
+            action = action_array(action=action, action_dim=env.action_space.shape[0])
+        obs, reward, terminated, truncated, _ = env.step(action)
+        done = terminated or truncated
+    env.close()
+
+    fig = plt.figure()
+    patch = plt.imshow(frames[0])
+    plt.axis("off")
+
+    def animate(i):
+        patch.set_data(frames[i])
+        return [patch]
+
+    anim = animation.FuncAnimation(
+        fig, animate, frames=len(frames), interval=delay, blit=True
+    )
+    plt.show()
+
+
+def select_combination(combinations):
+    """
+    Interactive selection menu for choosing a combination using arrow keys.
+    """
+    selected_index = 0  # Start at the first combination
+
+    while True:
+        print("\nSelect a Combination (Use ↑ ↓ keys and press Enter):\n")
+        for i, (name, _, _) in enumerate(combinations):
+            if i == selected_index:
+                print(f"> {name}")  # Highlighted selection
+            else:
+                print(f"  {name}")
+
+        key = readchar.readkey()
+
+        if key == readchar.key.UP:
+            selected_index = (selected_index - 1) % len(combinations)  # Move up
+        elif key == readchar.key.DOWN:
+            selected_index = (selected_index + 1) % len(combinations)  # Move down
+        elif key == readchar.key.ENTER or key == readchar.key.SPACE:
+            break  # Confirm selection
+
+    return combinations[selected_index]  # Return the selected combination

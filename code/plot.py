@@ -6,7 +6,7 @@ from torch.nn import GaussianNLLLoss
 from qnets import EnsembleDQN, SimpleDQN
 from loss_func import td_loss_meta
 from loss_func import *
-from action_selection import SelectActionMeta
+from action_selection import Qnet_SelectActionMeta
 from action_selection import *
 from utils import (
     ReplayBuffer,
@@ -36,7 +36,7 @@ def training_loop_qn(
     target_qnet,
     optimizers,
     td_lossfunc: td_loss_meta,
-    select_action: SelectActionMeta,
+    select_action: Qnet_SelectActionMeta,
     replay_buffer: ReplayBuffer,
     configs: dict,
     print_info: bool,

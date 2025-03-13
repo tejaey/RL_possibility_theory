@@ -1,10 +1,13 @@
 from typing import Literal
+import torch.nn.functional as F
 import torch, random, math
 from torch import FloatType, optim
 import numpy as np
 import torch.nn as nn
 from abc import ABC, abstractmethod
 import logging
+
+from qnets import StdPredictor
 
 
 def unpack_batch(batch):
@@ -249,3 +252,318 @@ class td_loss_single_dqn(td_loss_meta):
         loss.backward()
         optimizer.step()
         return loss.item()
+
+
+def quantile_loss(pred, target, tau):
+    error = target - pred
+    loss = torch.max((tau - 1) * error, tau * error)
+    return loss.mean()
+
+
+def sample_candidates_triangular(lower, upper, num_samples):
+    """
+    Sample candidate next states from the interval [lower, upper] using a symmetric triangular distribution.
+    """
+    batch_size, state_dim = lower.shape
+    u = torch.rand(batch_size, num_samples, state_dim, device=lower.device)
+
+    lower_expanded = lower.unsqueeze(1)
+    upper_expanded = upper.unsqueeze(1)
+    diff = upper_expanded - lower_expanded
+    samples = torch.where(
+        u < 0.5,
+        lower_expanded + diff * torch.sqrt(u / 2.0),
+        upper_expanded - diff * torch.sqrt((1 - u) / 2.0),
+    )
+    return samples
+
+
+def sample_candidates_unif(lower, upper, num_samples):
+    """
+    Uniformly sample candidate next states from the interval [lower, upper].
+    - lower, upper: Tensors of shape [batch_size, state_dim]
+    - Returns: Tensor of shape [batch_size, num_samples, state_dim]
+    """
+    batch_size, state_dim = lower.shape
+    uniform_samples = torch.rand(batch_size, num_samples, state_dim)
+    candidates = lower.unsqueeze(1) + (upper - lower).unsqueeze(1) * uniform_samples
+    return candidates
+
+
+class actor_critic_loss:
+    def __init__(self, state_dim, action_dim, batch_size, gamma=0.9):
+        self.batch_size = batch_size
+        self.gamma = gamma
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+
+    def __call__(
+        self,
+        replay_buffer,
+        online_actor,
+        target_actor,
+        actor_optimizer,
+        online_critic,
+        target_critic,
+        critic_optimizer,
+        **kwargs,
+    ):
+        gamma = self.gamma
+        batch_size = self.batch_size
+
+        if len(replay_buffer) < batch_size:
+            return -1
+
+        states_np, actions_np, rewards_np, next_states_np, dones_np = (
+            replay_buffer.sample(batch_size)
+        )
+        states = torch.FloatTensor(states_np)
+        actions = torch.FloatTensor(actions_np)
+        rewards = torch.FloatTensor(rewards_np).unsqueeze(1)
+        next_states = torch.FloatTensor(next_states_np)
+        dones = torch.FloatTensor(dones_np).unsqueeze(1)
+
+        # Compute the target Q-value using the target networks.
+        next_actions = target_actor(next_states)
+        next_q = target_critic(next_states, next_actions)
+        target_q = rewards + gamma * (1 - dones) * next_q.detach()
+
+        # Critic update: minimize the MSE between current Q and target Q.
+        current_q = online_critic(states, actions)
+        critic_loss = F.mse_loss(current_q, target_q)
+        critic_optimizer.zero_grad()
+        critic_loss.backward()
+        critic_optimizer.step()
+
+        # Actor update: maximize the Q-value by minimizing the negative Q.
+        actor_loss = -online_critic(states, online_actor(states)).mean()
+        actor_optimizer.zero_grad()
+        actor_loss.backward()
+        actor_optimizer.step()
+
+        return actor_loss
+
+
+def gaussian_std_nll_loss(predicted_log_std, error):
+    std = torch.exp(predicted_log_std)
+    const = torch.tensor(2 * torch.pi, device=predicted_log_std.device)
+    loss = 0.5 * torch.log(const) + predicted_log_std + 0.5 * ((error) / std) ** 2
+    return loss.mean()
+
+
+def sample_candidates_gaussian(std_model, states, actions, next_states, num_samples):
+    """
+    Sample candidate next states using a Gaussian model that predicts the std.
+    The mean is taken as the observed next state.
+
+    Args:
+        std_model: an instance of StdPredictor.
+        states: Tensor of shape [batch, state_dim]
+        actions: Tensor of shape [batch, action_dim]
+        next_states: Tensor of shape [batch, state_dim] (observed next states)
+        num_samples: number of samples per instance.
+    Returns:
+        Tensor of shape [batch, num_samples, state_dim].
+    """
+    # Predict log_std for each (state, action)
+    log_std = std_model(states, actions)  # [batch, state_dim]
+    std = torch.exp(log_std)  # [batch, state_dim]
+
+    batch_size, state_dim = next_states.shape
+    # Sample epsilon from standard normal: [batch, num_samples, state_dim]
+    eps = torch.randn(batch_size, num_samples, state_dim, device=next_states.device)
+    # Expand mean (observed next_states) and std to sample shape:
+    mean_expanded = next_states.unsqueeze(1)  # [batch, 1, state_dim]
+    std_expanded = std.unsqueeze(1)  # [batch, 1, state_dim]
+
+    samples = mean_expanded + std_expanded * eps
+    return samples
+
+
+from torch import optim
+
+
+class actor_critic_loss_maxmax:
+    def __init__(
+        self,
+        state_dim,
+        action_dim,
+        batch_size,
+        gamma=0.9,
+        num_next_state_sample=10,
+        next_state_sample: Literal["gaussian", "triangular", "unif", "null"] = "unif",
+        use_min: bool = False,
+    ):
+        self.batch_size = batch_size
+        self.gamma = gamma
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.num_next_state_sample = num_next_state_sample
+        self.next_state_sample = next_state_sample
+        self.std_model = StdPredictor(state_dim=state_dim, action_dim=action_dim)
+        self.std_optimizer = optim.Adam(self.std_model.parameters(), lr=0.001)
+        self.use_min = use_min
+
+    def __call__(
+        self,
+        replay_buffer,
+        online_actor,
+        target_actor,
+        actor_optimizer,
+        online_critic,
+        target_critic,
+        critic_optimizer,
+        quantile_models,
+        quantile_optimizers,
+        **kwargs,
+    ):
+        gamma = self.gamma
+        batch_size = self.batch_size
+
+        if len(replay_buffer) < batch_size:
+            return -1
+
+        states_np, actions_np, rewards_np, next_states_np, dones_np = (
+            replay_buffer.sample(batch_size)
+        )
+        states = torch.FloatTensor(states_np)
+        actions = torch.FloatTensor(actions_np)
+        rewards = torch.FloatTensor(rewards_np).unsqueeze(1)
+        next_states = torch.FloatTensor(next_states_np)
+        dones = torch.FloatTensor(dones_np).unsqueeze(1)
+
+        match self.next_state_sample:
+            case "unif":
+                quantile_preds = quantile_models(states, actions)
+                for i, tau in enumerate(quantile_models.quantiles):
+                    loss_i = quantile_loss(quantile_preds[i], next_states, tau=tau)
+                    quantile_optimizers[i].zero_grad()
+                    loss_i.backward()
+                    quantile_optimizers[i].step()
+                candidate_next_states = sample_candidates_unif(
+                    quantile_preds[0], quantile_preds[1], self.num_next_state_sample
+                )
+            case "triangular":
+                quantile_preds = quantile_models(states, actions)
+                for i, tau in enumerate(quantile_models.quantiles):
+                    loss_i = quantile_loss(quantile_preds[i], next_states, tau=tau)
+                    quantile_optimizers[i].zero_grad()
+                    loss_i.backward()
+                    quantile_optimizers[i].step()
+                candidate_next_states = sample_candidates_triangular(
+                    quantile_preds[0], quantile_preds[1], self.num_next_state_sample
+                )
+            case "null":
+                candidate_next_states = next_states.unsqueeze(1)
+            case "gaussian":
+                predicted_log_std = self.std_model(states, actions)
+                # Here we assume the "target" for the mean is the observed next state.
+                # If the mean is provided by another network m, use: error = next_states - m.
+                error = (
+                    next_states - next_states
+                )  # = 0; if you are not modeling a residual, you may need an alternative target.
+                # In many cases, you’d have a learned mean and then train the std on the residual.
+                gaussian_loss = gaussian_std_nll_loss(predicted_log_std, error)
+                self.std_optimizer.zero_grad()
+                gaussian_loss.backward()
+                self.std_optimizer.step()
+
+                candidate_next_states = sample_candidates_gaussian(
+                    self.std_model,
+                    states,
+                    actions,
+                    next_states,
+                    self.num_next_state_sample,
+                )
+
+        bs, num_samples, _ = candidate_next_states.shape
+        candidate_next_states_flat = candidate_next_states.reshape(
+            bs * num_samples, self.state_dim
+        )
+        candidate_actions = target_actor(candidate_next_states_flat)
+        candidate_qs = target_critic(candidate_next_states_flat, candidate_actions)
+        candidate_qs = candidate_qs.reshape(bs, num_samples, 1)
+        # Compute the target Q-value using the target networks.
+
+        # true_next_state = next_states.unsqueeze(1)
+        true_action = target_actor(next_states)
+        true_q = target_critic(next_states, true_action).unsqueeze(1)
+
+        if self.next_state_sample == "null":
+            max_q = true_q.squeeze(1)
+        else:
+            all_candidate_qs = torch.cat([candidate_qs, true_q], dim=1)
+            match self.use_min:
+                case True:
+                    max_q, _ = torch.min(all_candidate_qs, dim=1)
+                case False:
+                    max_q, _ = torch.min(all_candidate_qs, dim=1)
+
+        target_q = rewards + gamma * (1 - dones) * max_q.detach()
+
+        current_q = online_critic(states, actions)
+        critic_loss = F.mse_loss(current_q, target_q)
+        critic_optimizer.zero_grad()
+        critic_loss.backward()
+        critic_optimizer.step()
+
+        actor_loss = -online_critic(states, online_actor(states)).mean()
+        actor_optimizer.zero_grad()
+        actor_loss.backward()
+        actor_optimizer.step()
+
+        return actor_loss
+
+
+class ensemble_critic_loss:
+    def __init__(self, state_dim, action_dim, batch_size, gamma=0.9):
+        self.batch_size = batch_size
+        self.gamma = gamma
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+
+    def __call__(
+        self,
+        replay_buffer,
+        online_actor,
+        target_actor,
+        actor_optimizer,
+        online_critic,
+        target_critic,
+        critic_optimizer,
+        **kwargs,
+    ):
+        gamma = self.gamma
+        batch_size = self.batch_size
+
+        if len(replay_buffer) < batch_size:
+            return -1
+
+        states_np, actions_np, rewards_np, next_states_np, dones_np = (
+            replay_buffer.sample(batch_size)
+        )
+        states = torch.FloatTensor(states_np)
+        actions = torch.FloatTensor(actions_np)
+        rewards = torch.FloatTensor(rewards_np).unsqueeze(1)
+        next_states = torch.FloatTensor(next_states_np)
+        dones = torch.FloatTensor(dones_np).unsqueeze(1)
+
+        # Compute the target Q-value using the target networks.
+        next_actions = target_actor(next_states)
+        next_q = target_critic(next_states, next_actions)
+        target_q = rewards + gamma * (1 - dones) * next_q.detach()
+
+        # Critic update: minimize the MSE between current Q and target Q.
+        current_q = online_critic(states, actions)
+        critic_loss = F.mse_loss(current_q, target_q)
+        critic_optimizer.zero_grad()
+        critic_loss.backward()
+        critic_optimizer.step()
+
+        # Actor update: maximize the Q-value by minimizing the negative Q.
+        actor_loss = -online_critic(states, online_actor(states)).mean()
+        actor_optimizer.zero_grad()
+        actor_loss.backward()
+        actor_optimizer.step()
+
+        return actor_loss
