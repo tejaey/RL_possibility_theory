@@ -133,58 +133,70 @@ if __name__ == "__main__":
         return re.search(r"(?<=td_loss_ensemble_).*?(?=_min)", combo_str).group(0)
 
     # Load raw data for CartPole.
-    with open("lunarlander.json", "r") as f:
-        rawgame = json.loads(f.read())
 
-    # Average over runs per combination.
-    game = {}
-    for combo in rawgame:
-        game[combo] = avg2(rawgame[combo])
-    game_name = "Lunder Lander"
+    game_name = "Walker2d-v5"
+    for game_name in [
+        "HalfCheetah-v5",
+        "Hopper-v5",
+        "Walker2d-v5",
+        "HalfCheetah-v5_noisy",
+        "Hopper-v5_noisy",
+        "Walker2d-v5_noisy",
+        "SparseHalfCheetah",
+        "SparseWalker2DEnv",
+        "SparseHopper",
+    ]:
+        with open(f"{game_name}.json", "r") as f:
+            rawgame = json.loads(f.read())
 
-    # Plot overall data.
-    plot_improved_rewards(game, smoothing_window=10, game=game_name)
+        # Average over runs per combination.
+        game = {}
+        for combo in rawgame:
+            game[combo] = avg2(rawgame[combo])[200:]
 
-    # Group by whether ensemble min is used.
-    use_min = []
-    not_use_min = []
-    for combo in rawgame:
-        if uses_min(combo):
-            use_min += rawgame[combo]
-        else:
-            not_use_min += rawgame[combo]
-    use_min_avg = avg2(use_min)
-    not_use_min_avg = avg2(not_use_min)
-    plot_improved_rewards(
-        {"use_min": use_min_avg, "not_use_min": not_use_min_avg},
-        game=game_name + " (minTrue vs others)",
-    )
-
-    # Group by whether majority voting is used.
-    use_voting = []
-    not_use_voting = []
-    for combo in rawgame:
-        if uses_majority_voting(combo):
-            use_voting += rawgame[combo]
-        else:
-            not_use_voting += rawgame[combo]
-    use_voting_avg = avg2(use_voting)
-    not_use_voting_avg = avg2(not_use_voting)
-    plot_improved_rewards(
-        {"use_voting": use_voting_avg, "not_use_voting": not_use_voting_avg},
-        game=game_name + " (Majority Voting vs others)",
-    )
-
-    # Group by loss functions.
-    loss_group = {}
-    for combo in rawgame:
-        loss_name = get_loss_function_name(combo)
-        if loss_name not in loss_group:
-            loss_group[loss_name] = []
-        loss_group[loss_name] += rawgame[combo]
-    loss_group_avg = {k: avg2(v) for k, v in loss_group.items()}
-    plot_improved_rewards(
-        loss_group_avg,
-        smoothing_window=10,
-        game=game_name + " (Grouped by Update Method)",
-    )
+        # Plot overall data.
+        plot_improved_rewards(game, smoothing_window=10, game=game_name)
+    #
+    # # Group by whether ensemble min is used.
+    # use_min = []
+    # not_use_min = []
+    # for combo in rawgame:
+    #     if uses_min(combo):
+    #         use_min += rawgame[combo]
+    #     else:
+    #         not_use_min += rawgame[combo]
+    # use_min_avg = avg2(use_min)
+    # not_use_min_avg = avg2(not_use_min)
+    # plot_improved_rewards(
+    #     {"use_min": use_min_avg, "not_use_min": not_use_min_avg},
+    #     game=game_name + " (minTrue vs others)",
+    # )
+    #
+    # # Group by whether majority voting is used.
+    # use_voting = []
+    # not_use_voting = []
+    # for combo in rawgame:
+    #     if uses_majority_voting(combo):
+    #         use_voting += rawgame[combo]
+    #     else:
+    #         not_use_voting += rawgame[combo]
+    # use_voting_avg = avg2(use_voting)
+    # not_use_voting_avg = avg2(not_use_voting)
+    # plot_improved_rewards(
+    #     {"use_voting": use_voting_avg, "not_use_voting": not_use_voting_avg},
+    #     game=game_name + " (Majority Voting vs others)",
+    # )
+    #
+    # # Group by loss functions.
+    # loss_group = {}
+    # for combo in rawgame:
+    #     loss_name = get_loss_function_name(combo)
+    #     if loss_name not in loss_group:
+    #         loss_group[loss_name] = []
+    #     loss_group[loss_name] += rawgame[combo]
+    # loss_group_avg = {k: avg2(v) for k, v in loss_group.items()}
+    # plot_improved_rewards(
+    #     loss_group_avg,
+    #     smoothing_window=10,
+    #     game=game_name + " (Grouped by Update Method)",
+    # )

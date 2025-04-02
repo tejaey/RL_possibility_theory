@@ -35,6 +35,9 @@ import logging
 import matplotlib.pyplot as plt
 from matplotlib import animation
 
+from custom_env import SparseHalfCheetah, SparseWalker2DEnv, make_env
+
+
 global device
 device = "cpu"
 
@@ -216,19 +219,29 @@ def training_loop_ac(
 
 # max max approach
 if __name__ == "__main__":
-    env_name = "Walker2d-v5"
+    iternumber = 2
     for env_name in [
+        "HalfCheetah-v5",
         "Hopper-v5",
         "Walker2d-v5",
-        "HalfCheetah-v5",
+        "SparseHalfCheetah",
+        "SparseWalker2DEnv",
+        "SparseHopper",
     ]:
-        env: gym.Env = gym.make(env_name, render_mode="rgb_array")
+        env: gym.Env = make_env(id=env_name)
+        # env: gym.Env = gym.make(env_name, render_mode="rgb_array")
+        # env: gym.Env = gym.make(env_name, render_mode="rgb_array")
         experimental_results = {}
 
-        next_state_sample_l = ["gaussian", "triangular", "unif", "null"]
+        next_state_sample_l = [
+            "null",
+            "gaussian",
+            "triangular",
+            "unif",
+        ]
         for next_state_sample in next_state_sample_l:
             results = []
-            for itern in range(3):
+            for itern in range(iternumber):
                 print(
                     f"Env: {env_name} | Sample Method: {next_state_sample} | Iter {itern}"
                 )
@@ -253,20 +266,27 @@ if __name__ == "__main__":
                     optim.Adam(model.parameters(), lr=1e-3)
                     for model in quantile_models.models
                 ]
+
                 select_action_func = AC_SelectAction(action_dim=action_dim)
+                # loss_func = actor_critic_loss(
+                #     state_dim=state_dim,
+                #     action_dim=action_dim,
+                #     batch_size=256,
+                #     gamma=0.99,
+                # )
                 loss_func = actor_critic_loss_maxmax(
                     state_dim=state_dim,
                     action_dim=action_dim,
                     batch_size=256,
                     gamma=0.99,
                     num_next_state_sample=5,
-                    next_state_sample="gaussian",
+                    next_state_sample=next_state_sample,
                     use_min=False,
                 )
                 configs = {
                     "action_dim": action_dim,
                     "state_dim": state_dim,
-                    "episodes": 500,
+                    "episodes": 1000,
                     "eps": 0.1,
                     "tau_soft_update": 0.05,
                 }
@@ -486,3 +506,25 @@ if __name__ != "__main__":
     # After training, run a visual demonstration of the LunarLander
     print("Visualizing LunarLander performance...")
     visualize_agent(env, online_qnet, combination[2], discrete=True)
+
+
+## Make the rwards sparsers / stepwise
+
+## Train a reward model
+
+## Try in the tabular case, grid world
+
+## Try model based approach with max max
+
+## Try possibility ensemble quantile models in the first approach
+
+## In the report
+
+## possibility theory
+
+## general RL explanation
+
+## go to possibility function -
+# gaussian it makes sense to sample from the gaussian
+#
+#

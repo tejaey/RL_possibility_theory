@@ -1,0 +1,107 @@
+\documentclass[11pt,a4paper]{report}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{natbib}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{bbm, amsmath, amssymb, algorithm, algpseudocode,subcaption }
+\usepackage{graphicx}
+\setcounter{tocdepth}{2}
+% Geometry: margins
+\geometry{
+    a4paper,
+    top=2.5cm,
+    bottom=2.5cm,
+    left=2.5cm,
+    right=2cm
+}
+
+% Listings (for code)
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  frame=single,
+  breaklines=true
+}
+
+% Header
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{\thepage}
+\fancyhead[L]{\leftmark}
+
+% Title Page
+\begin{document}
+\begin{titlepage}
+    \centering
+    \vspace*{3cm}
+    {\Huge\bfseries Possibility Theory for Reinforcement Learning \par}
+    \vspace{2cm}
+    {\Large Tejas Gupta \par}
+    \vspace{1.5cm}
+    Submitted as part of the honours requirements \par
+    \vspace{1cm}
+    Supervisor: Dr. XYZ \par
+    Co-supervisor: Dr. ABC (if any) \par
+    \vfill
+    Division of Mathematical Sciences \\
+    School of Physical and Mathematical Sciences \\
+    Nanyang Technological University \\
+    \vspace{1cm}
+    \textbf{April 2025}
+\end{titlepage}
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+A concise summary of why possibility theory is valuable in reinforcement learning, outlining the three major approaches and their key outcomes.
+
+\chapter*{Acknowledgements}
+\addcontentsline{toc}{chapter}{Acknowledgements}
+(Optional) Thank your supervisor, friends, colleagues.
+
+\tableofcontents
+% \listoffigures
+% \listoftables
+% \lstlistoflistings
+
+\chapter{Introduction}
+\section{Motivation and Context}
+\section{Overview of Proposed Methods}
+\section{Main Contributions}
+
+\chapter{Background}
+\section{Possibility Theory}
+\begin{equation}
+ 5+5=10 
+\end{equation}
+\section{Reinforcement Learning}
+
+\chapter{Proposed Approaches}
+\section{Possibility Over Q Values}
+\section{Possibility Over Q Ensembles}
+\section{Model-Based MaxMax Possibility}
+
+\chapter{Experimental Setup}
+\section{Environments}
+\section{Implementation Details}
+
+\chapter{Results and Discussion}
+\section{Performance Comparison}
+\section{Insights}
+\section{Limitations}
+
+\chapter{Conclusion}
+\section{Summary}
+\section{Future Work}
+
+\addcontentsline{toc}{chapter}{References}
+\bibliographystyle{apalike}
+\bibliography{references}
+
+\appendix
+\chapter{Extra Details}
+Code, logs, math, anything supplementary.
+
+\end{document}
+

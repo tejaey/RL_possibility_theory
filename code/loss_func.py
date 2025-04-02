@@ -1,4 +1,5 @@
 from typing import Literal
+import gymnasium
 import torch.nn.functional as F
 import torch, random, math
 from torch import FloatType, optim
@@ -7,7 +8,7 @@ import torch.nn as nn
 from abc import ABC, abstractmethod
 import logging
 
-from qnets import StdPredictor
+from qnets import StdPredictor, RewardModel
 
 
 def unpack_batch(batch):
@@ -290,7 +291,46 @@ def sample_candidates_unif(lower, upper, num_samples):
     return candidates
 
 
-class actor_critic_loss:
+def gaussian_std_nll_loss(predicted_log_std, error):
+    std = torch.exp(predicted_log_std)
+    const = torch.tensor(2 * torch.pi, device=predicted_log_std.device)
+    loss = 0.5 * torch.log(const) + predicted_log_std + 0.5 * ((error) / std) ** 2
+    return loss.mean()
+
+
+def sample_candidates_gaussian(std_model, states, actions, next_states, num_samples):
+    """
+    Sample candidate next states using a Gaussian model that predicts the std.
+    The mean is taken as the observed next state.
+
+    Args:
+        std_model: an instance of StdPredictor.
+        states: Tensor of shape [batch, state_dim]
+        actions: Tensor of shape [batch, action_dim]
+        next_states: Tensor of shape [batch, state_dim] (observed next states)
+        num_samples: number of samples per instance.
+    Returns:
+        Tensor of shape [batch, num_samples, state_dim].
+    """
+    # Predict log_std for each (state, action)
+    log_std = std_model(states, actions)  # [batch, state_dim]
+    std = torch.exp(log_std)  # [batch, state_dim]
+
+    batch_size, state_dim = next_states.shape
+    # Sample epsilon from standard normal: [batch, num_samples, state_dim]
+    eps = torch.randn(batch_size, num_samples, state_dim, device=next_states.device)
+    # Expand mean (observed next_states) and std to sample shape:
+    mean_expanded = next_states.unsqueeze(1)  # [batch, 1, state_dim]
+    std_expanded = std.unsqueeze(1)  # [batch, 1, state_dim]
+
+    samples = mean_expanded + std_expanded * eps
+    return samples
+
+
+from torch import optim
+
+
+class ensemble_critic_loss:
     def __init__(self, state_dim, action_dim, batch_size, gamma=0.9):
         self.batch_size = batch_size
         self.gamma = gamma
@@ -342,45 +382,6 @@ class actor_critic_loss:
         actor_optimizer.step()
 
         return actor_loss
-
-
-def gaussian_std_nll_loss(predicted_log_std, error):
-    std = torch.exp(predicted_log_std)
-    const = torch.tensor(2 * torch.pi, device=predicted_log_std.device)
-    loss = 0.5 * torch.log(const) + predicted_log_std + 0.5 * ((error) / std) ** 2
-    return loss.mean()
-
-
-def sample_candidates_gaussian(std_model, states, actions, next_states, num_samples):
-    """
-    Sample candidate next states using a Gaussian model that predicts the std.
-    The mean is taken as the observed next state.
-
-    Args:
-        std_model: an instance of StdPredictor.
-        states: Tensor of shape [batch, state_dim]
-        actions: Tensor of shape [batch, action_dim]
-        next_states: Tensor of shape [batch, state_dim] (observed next states)
-        num_samples: number of samples per instance.
-    Returns:
-        Tensor of shape [batch, num_samples, state_dim].
-    """
-    # Predict log_std for each (state, action)
-    log_std = std_model(states, actions)  # [batch, state_dim]
-    std = torch.exp(log_std)  # [batch, state_dim]
-
-    batch_size, state_dim = next_states.shape
-    # Sample epsilon from standard normal: [batch, num_samples, state_dim]
-    eps = torch.randn(batch_size, num_samples, state_dim, device=next_states.device)
-    # Expand mean (observed next_states) and std to sample shape:
-    mean_expanded = next_states.unsqueeze(1)  # [batch, 1, state_dim]
-    std_expanded = std.unsqueeze(1)  # [batch, 1, state_dim]
-
-    samples = mean_expanded + std_expanded * eps
-    return samples
-
-
-from torch import optim
 
 
 class actor_critic_loss_maxmax:
@@ -515,12 +516,174 @@ class actor_critic_loss_maxmax:
         return actor_loss
 
 
-class ensemble_critic_loss:
-    def __init__(self, state_dim, action_dim, batch_size, gamma=0.9):
+class modelbasedrollouts:
+    def __init__(
+        self,
+        state_dim,
+        action_dim,
+        batch_size,
+        gamma=0.9,
+        num_next_state_sample=10,
+        next_state_sample: str = "unif",  # Options: "gaussian", "triangular", "unif", "null"
+        use_min: bool = False,
+        rollout_horizon: int = 5,
+    ):
         self.batch_size = batch_size
         self.gamma = gamma
         self.state_dim = state_dim
         self.action_dim = action_dim
+        self.num_next_state_sample = num_next_state_sample
+        self.next_state_sample = next_state_sample
+        self.use_min = use_min
+        self.rollout_horizon = rollout_horizon
+
+        # Existing standard deviation model for the "gaussian" option.
+        self.std_model = StdPredictor(state_dim=state_dim, action_dim=action_dim)
+        self.std_optimizer = optim.Adam(self.std_model.parameters(), lr=0.001)
+
+        # New reward predictor and its optimizer.
+        self.reward_model = RewardPredictor(state_dim, action_dim)
+        self.reward_optimizer = optim.Adam(self.reward_model.parameters(), lr=0.001)
+
+    def multi_step_rollout_quantile(
+        self, initial_states, target_actor, target_critic, gamma, quantile_models
+    ):
+        horizon = self.rollout_horizon
+        batch_size = initial_states.shape[0]
+        device = initial_states.device
+        cumulative_reward = torch.zeros(batch_size, 1).to(device)
+        discount = 1.0
+        current_states = initial_states
+
+        for step in range(horizon):
+            actions = target_actor(current_states)
+            # Use the appropriate branch for next state prediction.
+            if self.next_state_sample == "unif":
+                quantile_preds = quantile_models(current_states, actions)
+                candidate_next_states = sample_candidates_unif(
+                    quantile_preds[0], quantile_preds[1], num_samples=1
+                )
+            elif self.next_state_sample == "triangular":
+                quantile_preds = quantile_models(current_states, actions)
+                candidate_next_states = sample_candidates_triangular(
+                    quantile_preds[0], quantile_preds[1], num_samples=1
+                )
+            elif self.next_state_sample == "null":
+                candidate_next_states = current_states.unsqueeze(1)
+            elif self.next_state_sample == "gaussian":
+                predicted_log_std = self.std_model(current_states, actions)
+                candidate_next_states = sample_candidates_gaussian(
+                    self.std_model,
+                    current_states,
+                    actions,
+                    None,
+                    num_samples=1,
+                )
+            else:
+                # Fallback: simply use the current state.
+                candidate_next_states = current_states.unsqueeze(1)
+
+            # We now have candidate_next_states of shape (batch_size, 1, state_dim).
+            next_states_pred = candidate_next_states.squeeze(
+                1
+            )  # Shape: (batch_size, state_dim)
+            # Predict the immediate reward for this simulated transition.
+            predicted_rewards = self.reward_model(
+                current_states, actions, next_states_pred
+            )
+            cumulative_reward += discount * predicted_rewards
+            discount *= gamma
+            current_states = next_states_pred
+
+        # Bootstrapping: use the critic to estimate the value of the final state.
+        final_actions = target_actor(current_states)
+        final_q = target_critic(current_states, final_actions).detach()
+        cumulative_reward += discount * final_q
+        return cumulative_reward
+
+    def __call__(
+        self,
+        replay_buffer,
+        online_actor,
+        target_actor,
+        actor_optimizer,
+        online_critic,
+        target_critic,
+        critic_optimizer,
+        quantile_models,
+        quantile_optimizers,
+        **kwargs,
+    ):
+        gamma = self.gamma
+        batch_size = self.batch_size
+
+        if len(replay_buffer) < batch_size:
+            return -1
+
+        states_np, actions_np, rewards_np, next_states_np, dones_np = (
+            replay_buffer.sample(batch_size)
+        )
+        states = torch.FloatTensor(states_np)
+        actions = torch.FloatTensor(actions_np)
+        rewards = torch.FloatTensor(rewards_np).unsqueeze(1)
+        next_states = torch.FloatTensor(next_states_np)
+        dones = torch.FloatTensor(dones_np).unsqueeze(1)
+
+        # Update quantile models using one-step transitions.
+        if self.next_state_sample in ["unif", "triangular"]:
+            quantile_preds = quantile_models(states, actions)
+            for i, tau in enumerate(quantile_models.quantiles):
+                loss_i = quantile_loss(quantile_preds[i], next_states, tau=tau)
+                quantile_optimizers[i].zero_grad()
+                loss_i.backward()
+                quantile_optimizers[i].step()
+        elif self.next_state_sample == "gaussian":
+            predicted_log_std = self.std_model(states, actions)
+            error = next_states - next_states  # Zero error target
+            gaussian_loss = gaussian_std_nll_loss(predicted_log_std, error)
+            self.std_optimizer.zero_grad()
+            gaussian_loss.backward()
+            self.std_optimizer.step()
+
+        # Update the reward model on actual transitions.
+        predicted_rewards = self.reward_model(states, actions, next_states)
+        reward_loss = F.mse_loss(predicted_rewards, rewards)
+        self.reward_optimizer.zero_grad()
+        reward_loss.backward()
+        self.reward_optimizer.step()
+
+        # Use a multi-step rollout with the quantile models to compute a synthetic target.
+        synthetic_target = self.multi_step_rollout_quantile(
+            states, target_actor, target_critic, gamma, quantile_models
+        )
+
+        # You might blend this synthetic multi-step return with a one-step target.
+        # For simplicity, here we use the synthetic_target as the target Q value.
+        target_q = synthetic_target * (1 - dones)
+
+        # Critic update.
+        current_q = online_critic(states, actions)
+        critic_loss = F.mse_loss(current_q, target_q.detach())
+        critic_optimizer.zero_grad()
+        critic_loss.backward()
+        critic_optimizer.step()
+
+        # Actor update.
+        actor_loss = -online_critic(states, online_actor(states)).mean()
+        actor_optimizer.zero_grad()
+        actor_loss.backward()
+        actor_optimizer.step()
+
+        return actor_loss
+
+
+class actor_critic_loss:
+    def __init__(self, batch_size, gamma=0.9):
+        self.batch_size = batch_size
+        self.gamma = gamma
+        # I dont think we ever use this?
+        # self.state_dim = state_dim
+        # self.action_dim = action_dim
 
     def __call__(
         self,

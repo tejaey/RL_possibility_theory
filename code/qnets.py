@@ -1,5 +1,5 @@
 import torch, random
-from torch import optim
+from typing import Literal
 import numpy as np
 import torch.nn as nn
 
@@ -48,6 +48,19 @@ class Actor(SimpleDQN):
     pass
 
 
+class RewardModel(nn.Module):
+    def __init__(self, state_dim, hidden_dim=128):
+        super(SimpleCritic, self).__init__()
+        self.net = nn.Sequential(
+            nn.Linear(state_dim + state_dim, hidden_dim),
+            nn.Sigmoid(),
+            nn.Linear(hidden_dim, 1),
+        )
+
+    def forward(self, state, next_state):
+        return self.net(torch.cat([state, next_state], dim=1))
+
+
 class SimpleCritic(nn.Module):
     def __init__(self, state_dim, action_dim, hidden_dim=128):
         super(SimpleCritic, self).__init__()
@@ -61,7 +74,17 @@ class SimpleCritic(nn.Module):
         return self.net(torch.cat([state, action], dim=1))
 
 
-from typing import Literal
+class SimpleDQN(nn.Module):
+    def __init__(self, state_dim, action_dim, hidden_dim=128):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, hidden_dim),
+            nn.Sigmoid(),
+            nn.Linear(hidden_dim, action_dim),
+        )
+
+    def forward(self, x):
+        return self.net(x)
 
 
 class EnsembleCritic(nn.Module):

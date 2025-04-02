@@ -79,6 +79,35 @@ class ensemble_action_majority_voting(Qnet_SelectActionMeta):
         return int(np.argmax(votes))
 
 
+def select_action_eps_greedy_meanvarQnet(state, q_network, epsilon):
+    """ """
+    if random.random() < epsilon:
+        return random.randint(0, action_dim - 1)
+    else:
+        state_t = torch.FloatTensor(state).unsqueeze(0)
+        with torch.no_grad():
+            mean, logvar = q_network(state_t)
+        return mean.squeeze().argmax().item()
+
+
+def selection_action_logvar(state, q_network, beta=1):
+    state_t = torch.FloatTensor(state).unsqueeze(0)
+    with torch.no_grad():
+        mean, logvar = q_network(state_t)
+    q_values = mean + beta * logvar
+    return q_values.argmax().item()
+
+
+def select_action_uncertainty_aware(state, q_network, beta=1):
+    state_t = torch.FloatTensor(state).unsqueeze(0)
+    with torch.no_grad():
+        mean, logvar = q_network(state_t)
+        variance = torch.exp(logvar)
+    q_values = mean + beta * torch.sqrt(variance)
+
+    return q_values.argmax().item()
+
+
 class AC_SelectAction:
     def __init__(self, action_dim) -> None:
         self.action_dim = action_dim
