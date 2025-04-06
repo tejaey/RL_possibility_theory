@@ -1,4 +1,4 @@
-\documentclass[11pt,a4paper]{report}
+\documentclass[14pt,a4paper]{report}
 \usepackage{geometry}
 \usepackage{graphicx}
 \usepackage{amsmath,amssymb}
@@ -8,6 +8,9 @@
 \usepackage{fancyhdr}
 \usepackage{bbm, amsmath, amssymb, algorithm, algpseudocode,subcaption }
 \usepackage{graphicx}
+\setlength{\parindent}{0pt} 
+\usepackage{parskip}  
+\setlength{\parskip}{\baselineskip}  
 \setcounter{tocdepth}{2}
 % Geometry: margins
 \geometry{
@@ -42,8 +45,7 @@
     \vspace{1.5cm}
     Submitted as part of the honours requirements \par
     \vspace{1cm}
-    Supervisor: Dr. XYZ \par
-    Co-supervisor: Dr. ABC (if any) \par
+    Supervisor: Dr. Jeremie Houssineau \par
     \vfill
     Division of Mathematical Sciences \\
     School of Physical and Mathematical Sciences \\
@@ -72,9 +74,136 @@ A concise summary of why possibility theory is valuable in reinforcement learnin
 
 \chapter{Background}
 \section{Possibility Theory}
-\begin{equation}
- 5+5=10 
-\end{equation}
+Possibility theory, introduced in \cite{ZADEH19999}, is a counterpart to probability theory that uses measures of possibility instead of probability.
+In this framework the uncertainty of an event is quantified by a possibility measure; this offers an alternative measure to model uncertainty of an event due to incomplete knowledge.
+The possibility of an event can range from $0$ to $1$ where a $0$ possibility would imply that that event is completely impossible where as $1$ would imply that the event is fully possible.
+In other words, possibility just refers to the degree with which an event is possible given our current knowledge.
+This is in contrast to the probability measure, where probability measures typically refer to the statistically frequency of an event, so probability of $1$ for an event would imply that said event is statistically likely to happen all the time.
+Similarly, a possibility of $0.
+8$ would imply that the event has high plausibility, where as a probability of $0.8$ would (typically) imply the stronger claim that the event happens with frequency of 0.8. \par
+
+Possibility theory was introduced as an extension to fuzzy sets in \cite{ZADEH19999}. A fuzzy set $\tilde{A}$ is defined as a set of ordered pairs:
+\[
+  \tilde{A} = \{(x, \mu_{\tilde{A}(x)} \mid x \in X)\} 
+\]
+where $\mu_{\tilde{A}}: X \to [0,1]$ is the membership function to the fuzzy set. The membership function over the set can also be understood as a \emph{Possibility Distribution $\hat{\pi}(x)$} over the set $X$. Analagous to probability theory, where the sum of the probabilities of all outcome states must be 1, a possibility distribution must ensure that at least one state is fully possible., i.e:
+\[
+  \sup{x \in X} \hat{\pi}(x) = 1
+\]
+The induced possibility measure for any subset of states is given by $\Pi$ is defined as the maximal value of $\pi$ over the states. 
+\[ \hat{\Pi}(A) = \sup {\pi(x) \mid x \in A} \]
+The above further implies that the union of 2 disjoint events are maxative. 
+\[
+  \hat{\Pi}(A \cup B) = \max\{\hat{\Pi}(A),\hat{\Pi}(B)\}.
+\]
+Note the above still holds if A and B are not disjoint. The possibility measure contrasts sharply with probability measures where the probability of the union of disjoint events is the sum of the probabilities. Similar to probability messures 
+\[
+\hat{\Pi}(\Omega) = 1
+\hat{\Pi}(\varnothing) = 1
+\]
+\cite{Dubois2001} also introduced the notion of necessity, the dual of possibility of an event. Necessity refers to the lack of plausibility of not an event. In order words an event is necessary to the extend that its complement is impossible. Possibility and Necessity together can be interpreted as upper and lower probability bounds of impressise probabilities (\cite{DUBOIS199265}). 
+\[
+  N(A) = min(\{1-\hat{\pi}(x)\} \mid x \in A) = 1 - \hat{\Pi}(\neg A)
+\]
+
+Here we can look at the difference between the algebriacn properties of possibility theory and probability theory. 
+\begin{itemize}
+  \item \textbf{Additivity and Maxivity:} Probability messures are aditive, which means that probabilities of disjoint sets is the sum of the individial probabilities. This is in contrast with possibility messure which is supermum preserving, the possibility of the union of sets the maximum of the possibilities; this gives possibility theory a supermum preserving property. More generally, a messure satisfying $\hat{\}  
+  \item \textbf{Normalisation:} A probability distrubtion requires that the sum of the probabilities of the states in the outcome space is 1. A possibility distribution only requires that atleast one outcome is full possible, in other words there must be one state in the outcome space which has a possibility of 1. Importantly, this normalisation allows possibility theory to easily represent complete ignorance trivially by assigning each event the possibility of 1; this also implies that each event has the necessity of 0. This is typically harder using probabilities as even using uniform probabilities imposes belief on the frequency of te outcomes. 
+  \item \textbf{Intersections and Unions} The join probabilities of two independpent event  A and B is typically the prodct $P(A) \dot P(B)$. In possibility theory, triangular norms (t-norms) are used to infer the possibility of the event A and B. A common choice for the T-norm is the minimum operator: $\hat{\pi}_{A\cap B}(x) = min(\hat{\pi}_{A}(x), (\hat{\pi}_{B}(x)))$. Other choices for T-Norms include the the Product T-norm and Łukasiewicz T-norm. Generally, T-conorms serve as the "OR" operations in fuzzy logic, of which the max operator discussed before is just on possible choice.  
+  \item Fuzzy Messures and Ingrals
+\end{itemize})
+
+\section{Algebraic Properties: Possibility vs. Probability}
+
+We now describe the main algebraic differences between probability and possibility theories.
+
+\subsection{Additivity and Maxitivity}
+
+\begin{itemize}
+  \item \textbf{Probability Measures:}  
+  Probability measures are \emph{additive}. For any two disjoint events \(A\) and \(B\) (i.e., \(A\cap B=\emptyset\)), the probability of their union is given by
+  \[
+  P(A \cup B) = P(A) + P(B).
+  \]
+  This additive property reflects the quantitative nature of probability, where the total weight is distributed among all outcomes.
+
+  \item \textbf{Possibility Measures:}  
+  In contrast, possibility measures are \emph{maxitive} (or supremum-preserving). For any events \(A\) and \(B\), the possibility measure of their union is given by
+  \[
+  \Pi(A \cup B) = \max\{\Pi(A), \Pi(B)\}.
+  \]
+  This property means that if at least one event is highly possible, then their union is considered highly possible. This is a key feature that allows possibility theory to express complete ignorance by simply assigning a possibility of 1 to all outcomes without forcing a partition of numerical weights 
+ % \cite{en.wikipedia.org, arxiv.org}.
+\end{itemize}
+
+\subsection{Normalization}
+
+\begin{itemize}
+  \item \textbf{Probability Distribution:}  
+  A probability distribution over an outcome space \(X\) requires that the probabilities of all states sum to 1:
+  \[
+  \sum_{x \in X} P(x) = 1.
+  \]
+  Even in situations of complete ignorance, a uniform distribution is imposed, which still assigns a fractional probability (e.g., \(1/6\) for each face of a die).
+
+  \item \textbf{Possibility Distribution:}  
+  A possibility distribution, on the other hand, is normalized by requiring that at least one outcome has the maximal possibility:
+  \[
+  \sup_{x \in X} \pi(x) = 1.
+  \]
+  This normalization permits complete ignorance to be represented trivially by assigning \( \pi(x)=1 \) for every \(x\) in \(X\). Under such a distribution, each event has a necessity of 0, since
+  \[
+  N(A) = 1 - \Pi(A^c) = 0,
+  \]
+  when nothing is ruled out. This flexibility makes it easier to represent uncertainty qualitatively, without imposing precise quantitative values 
+  % \cite{arxiv.org}.
+\end{itemize}
+
+\subsection{Intersections and Unions: Conjunctions and Disjunctions}
+
+\begin{itemize}
+  \item \textbf{Probability Theory:}  
+  For independent events \(A\) and \(B\), the probability of the joint event (the intersection) is typically given by the product:
+  \[
+  P(A \cap B) = P(A) \cdot P(B).
+  \]
+  Similarly, as stated above, disjoint events have probabilities that add:
+  \[
+  P(A \cup B) = P(A) + P(B).
+  \]
+
+  \item \textbf{Possibility Theory:}  
+  Possibility theory uses the concept of \emph{triangular norms (t-norms)} to model the logical AND (conjunction) of events. A common t-norm is the minimum operator, so that for events \(A\) and \(B\) with possibility distributions \( \pi_A(x) \) and \( \pi_B(x) \) respectively, the possibility distribution for the intersection is given by:
+  \[
+  \pi_{A \cap B}(x) = \min\{ \pi_A(x), \pi_B(x) \}.
+  \]
+  This indicates that the possibility of a state satisfying both \(A\) and \(B\) is determined by the less possible (the minimum) of the two. Dually, t-conorms (such as the maximum operator) are used for logical OR (disjunction):
+  \[
+  \pi_{A \cup B}(x) = \max\{ \pi_A(x), \pi_B(x) \}.
+  \]
+  Thus, while probability theory uses multiplication (for independent events) and addition (for disjoint events), possibility theory replaces these operations with min and max, respectively. This leads to a very different arithmetic of uncertainty, one that is particularly well-suited for handling qualitative and incomplete information 
+  %\cite{arxiv.org, en.wikipedia.org}.
+\end{itemize}
+
+\subsection{Fuzzy Measures and Integrals}
+
+Possibility measures are a subset of \\emph{fuzzy measures} (also called monotonic measures or capacities). A fuzzy measure generalizes the classical measure by relaxing additivity and requiring only monotonicity:
+\[
+A \\subseteq B \\implies m(A) \\leq m(B).
+\]
+In decision theory, instead of using the expected value (computed via the Lebesgue or Choquet integral), one can aggregate outcomes using the \\emph{Sugeno integral}, a nonlinear operator based on the max and min operations. The Sugeno integral provides an ordinal analogue to the Choquet integral and is particularly useful in qualitative decision-making scenarios where the precise numeric integration of probabilities is not possible or desired \cite{arxiv.org}.
+
+For example, a decision-maker employing possibility theory might adopt a \\textbf{maximin strategy}: they evaluate each action by the minimum degree of satisfaction (or necessity) it guarantees, and then select the action with the highest such minimum value. Conversely, a maximax strategy would rely on the maximum possible outcome (reflecting an optimistic bias). These strategies directly correspond to the lattice operations (infimum for maximin, supremum for maximax) and illustrate how possibility theory uses a different set of algebraic tools compared to probability theory.
+
+---
+
+
+
+
+
+
+Lets consider the case of rolling a dice. Let event $a$ and $b$ be the event where the dice yields $4$ and $5$ respectively. Without any information about the result of the dice throw, the probability are $1/6$ each where as the possibility of the events is $1$. If one is informed 
 \section{Reinforcement Learning}
 
 \chapter{Proposed Approaches}
@@ -97,7 +226,7 @@ A concise summary of why possibility theory is valuable in reinforcement learnin
 
 \addcontentsline{toc}{chapter}{References}
 \bibliographystyle{apalike}
-\bibliography{references}
+\bibliography{fypb.bib}
 
 \appendix
 \chapter{Extra Details}
