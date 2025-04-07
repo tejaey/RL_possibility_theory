@@ -94,167 +94,165 @@ A concise summary of why possibility theory is valuable in reinforcement learnin
 \chapter{Background}
 \section{Possibility Theory}
 
-Possibility theory, introduced in \cite{ZADEH19999}, is a counterpart to probability theory, that provides an alternative flexible method of messuring and accounting for uncertainty.
-In this framework the uncertainty of an event is quantified by a possibility measure; this offers an alternative measure to model uncertainty of an event due to incomplete knowledge.
-The possibility of an event can range from $0$ to $1$ where a $0$ possibility would imply that that event is completely impossible where as $1$ would imply that the event is fully possible.
-In other words, possibility just refers to the degree with which an event is possible given our current knowledge.
-This is in contrast to the probability measure, where probability measures typically refer to the statistically frequency of an event, so probability of $1$ for an event would imply that said event is statistically likely to happen all the time.
-Similarly, a possibility of $0.
-8$ would imply that the event has high plausibility, where as a probability of $0.8$ would (typically) imply the stronger claim that the event happens with frequency of 0.8. \par
+Possibility theory, introduced in \cite{ZADEH19999}, is a counterpart to probability theory that provides an alternative, flexible method of measuring and accounting for uncertainty. In this framework the uncertainty of an event is quantified by a possibility measure, which offers an alternative to model uncertainty due to incomplete knowledge. The possibility of an event can range from $0$ to $1$, where a value of $0$ implies that the event is completely impossible and a value of $1$ implies that the event is fully possible. In other words, possibility refers to the degree with which an event is possible given our current knowledge. This is in contrast to probability measures, where a probability of $1$ implies that an event is statistically certain (or highly frequent), while a probability of $0.8$ typically implies that the event happens with a frequency of 80\%.
 
+\subsection{Fuzzy Sets and Possibility Distributions}
 Possibility theory was introduced as an extension to fuzzy sets in \cite{ZADEH19999}. A fuzzy set $\tilde{A}$ is defined as a set of ordered pairs:
 \[
-  \tilde{A} = \{(x, \mu_{\tilde{A}(x)} \mid x \in X)\} 
+  \tilde{A} = \{(x, \mu_{\tilde{A}}(x)) \mid x \in X\},
 \]
-where $\mu_{\tilde{A}}: X \to [0,1]$ is the membership function to the fuzzy set. The membership function over the set can also be understood as a \emph{Possibility Distribution $\hat{\pi}(x)$} over the set $X$. Analagous to probability theory, where the sum of the probabilities of all outcome states must be 1, a possibility distribution must ensure that at least one state is fully possible., i.e:
+where $\mu_{\tilde{A}}: X \to [0,1]$ is the membership function to the fuzzy set. The membership function over the set can also be understood as a \emph{Possibility Distribution} $\hat{\pi}(x)$ over the set $X$. Analogous to probability theory, where the sum of the probabilities of all outcome states must be 1, a possibility distribution must ensure that at least one state is fully possible, i.e.,
 \[
-  \sup{x \in X} \hat{\pi}(x) = 1
+  \sup_{x \in X} \hat{\pi}(x) = 1.
 \]
-The induced possibility measure for any subset of states is given by $\hat{\pi}$ is defined as the maximal value of $\hat{\pi}$ over the states. 
-\[ \hat{\Pi}(A) = \sup {\hat{\pi}(x) \mid x \in A} \]
-The above further implies that the union of 2 disjoint events are maxative. 
+The induced possibility measure for any subset $A \subseteq X$ is defined as the maximal value of $\hat{\pi}$ over the states:
+\[
+  \hat{\Pi}(A) = \sup \{ \hat{\pi}(x) \mid x \in A \}.
+\]
+This further implies that the union of two events is maxitive:
 \[
   \hat{\Pi}(A \cup B) = \max\{\hat{\Pi}(A),\hat{\Pi}(B)\}.
 \]
-Note the above still holds if A and B are not disjoint. The possibility measure contrasts sharply with probability measures where the probability of the union of disjoint events is the sum of the probabilities. Similar to probability messures 
+Note that this holds even if $A$ and $B$ are not disjoint. In contrast to probability measures, where the probability of the union of disjoint events is the sum of the probabilities, possibility measures satisfy
 \[
-\hat{\Pi}(\Omega) = 1
-\hat{\Pi}(\varnothing) = 1
+\hat{\Pi}(\Omega) = 1,\quad \hat{\Pi}(\varnothing) = 1.
 \]
-\cite{Dubois2001} also introduced the notion of necessity, the dual of possibility of an event. Necessity refers to the lack of plausibility of not an event. In order words an event is necessary to the extend that its complement is impossible. Possibility and Necessity together can be interpreted as upper and lower probability bounds of impressise probabilities (\cite{DUBOIS199265}). 
+\cite{Dubois2001} also introduced the notion of necessity, the dual of possibility, defined as
 \[
-  N(A) = min(\{1-\hat{\pi}(x)\} \mid x \in A) = 1 - \hat{\Pi}(\neg A)
+  N(A) = \min\{1-\hat{\pi}(x) \mid x \in A\} = 1 - \hat{\Pi}(\neg A).
 \]
-\subsection{Algebraic Properties: Possibility vs. Probability}
+Necessity quantifies the lack of plausibility of the complement of an event, so that possibility and necessity together can be interpreted as upper and lower probability bounds of imprecise probabilities (\cite{DUBOIS199265}).
 
-We now describe the main algebraic differences between probability and possibility theories.
+\subsection{Additivity and Maxitivity}
+Probability measures are \emph{additive}. For any two disjoint events \(A\) and \(B\) (i.e., \(A\cap B=\emptyset\)), the probability of their union is given by
+\[
+P(A \cup B) = P(A) + P(B).
+\]
+This additive property reflects the quantitative nature of probability, where the total weight is distributed among all outcomes.
 
-\subsubsection{Additivity and Maxitivity}
+In contrast, possibility measures are \emph{maxitive} (or supremum-preserving) (\cite{Dubois:2007}). For any events \(A\) and \(B\), the possibility measure of their union is given by
+\[
+  \hat{\Pi}(A \cup B) = \max\{\hat{\Pi}(A), \hat{\Pi}(B)\}.
+\]
+This property implies that if at least one event is highly possible, then their union is considered highly possible. It allows possibility theory to express complete ignorance by simply assigning a possibility of 1 to all outcomes without forcing a partition of numerical weights.
 
-  Probability measures are \emph{additive}. For any two disjoint events \(A\) and \(B\) (i.e., \(A\cap B=\emptyset\)), the probability of their union is given by
-  \[
-  P(A \cup B) = P(A) + P(B).
-  \]
-  This additive property reflects the quantitative nature of probability, where the total weight is distributed among all outcomes.
+\subsection{Normalization}
+A probability distribution over an outcome space \(X\) requires that the probabilities of all states sum to 1:
+\[
+\sum_{x \in X} P(x) = 1.
+\]
+Even in situations of complete ignorance, a uniform distribution is imposed, which still assigns fractional probabilities to each outcome.
 
-  In contrast, possibility measures are \emph{maxitive} (or supremum-preserving) (\cite{Dubois:2007}). For any events \(A\) and \(B\), the possibility measure of their union is given by
-  \[
-    \hat{\Pi}(A \cup B) = \max\{\hat{\Pi}(A), \hat{\Pi}(B)\}.
-  \]
-  This property means that if at least one event is highly possible, then their union is considered highly possible. This is a key feature that allows possibility theory to express complete ignorance by simply assigning a possibility of 1 to all outcomes without forcing a partition of numerical weights 
- % \cite{en.wikipedia.org, arxiv.org}.
+A possibility distribution, on the other hand, is normalized by requiring that at least one outcome has the maximal possibility:
+\[
+  \sup_{x \in X} \hat{\pi}(x) = 1.
+\]
+This normalization permits complete ignorance to be represented trivially by assigning \( \hat{\pi}(x)=1 \) for every \(x\) in \(X\). Under such a distribution, each event has a necessity of 0, since
+\[
+N(A) = 1 - \hat{\pi}(A^c) = 0,
+\]
+when nothing is ruled out. This flexibility makes it easier to represent uncertainty qualitatively without imposing precise quantitative values.
 
-\subsubsection{Normalization}
-  A probability distribution over an outcome space \(X\) requires that the probabilities of all states sum to 1:
-  \[
-  \sum_{x \in X} P(x) = 1.
-  \]
-  Even in situations of complete ignorance, a uniform distribution is imposed, which still assigns a fractional probability.
+\subsection{Intersections and Unions: Conjunctions and Disjunctions}
+For independent events \(A\) and \(B\), the probability of the joint event (the intersection) is typically given by the product:
+\[
+P(A \cap B) = P(A) \cdot P(B).
+\]
+Similarly, disjoint events have probabilities that add:
+\[
+P(A \cup B) = P(A) + P(B).
+\]
+In contrast, possibility theory uses triangular norms (t-norms) to model the logical AND (conjunction) of events (\cite{DUBOIS01021982}). A common t-norm is the minimum operator, so that for events \(A\) and \(B\) with possibility distributions \( \pi_A(x) \) and \( \pi_B(x) \) respectively, the possibility distribution for the intersection is given by:
+\[
+\pi_{A \cap B}(x) = \min\{ \pi_A(x), \pi_B(x) \}.
+\]
+This indicates that the possibility of a state satisfying both \(A\) and \(B\) is determined by the lesser possibility of the two. Dually, t-conorms (such as the maximum operator) are used for logical OR (disjunction):
+\[
+\pi_{A \cup B}(x) = \max\{ \pi_A(x), \pi_B(x) \}.
+\]
+Thus, while probability theory uses multiplication (for independent events) and addition (for disjoint events), possibility theory replaces these operations with the minimum and maximum operators, respectively. This results in a very different arithmetic of uncertainty, which can simplify the handling of incomplete information.
 
-  A possibility distribution, on the other hand, is normalized by requiring that at least one outcome has the maximal possibility:
-  \[
-    \sup_{x \in X} \hat{\pi}(x) = 1.
-  \]
-  This normalization permits complete ignorance to be represented trivially by assigning \( \hat{\pi}(x)=1 \) for every \(x\) in \(X\). Under such a distribution, each event has a necessity of 0, since
-  \[
-  N(A) = 1 - \hat{\pi}(A^c) = 0,
-  \]
-  when nothing is ruled out. This flexibility makes it easier to represent uncertainty qualitatively, without imposing precise quantitative values 
-
-\subsubsection{Intersections and Unions: Conjunctions and Disjunctions}
-  
-  For independent events \(A\) and \(B\), the probability of the joint event (the intersection) is typically given by the product:
-  \[
-  P(A \cap B) = P(A) \cdot P(B).
-  \]
-  Similarly, as stated above, disjoint events have probabilities that add:
-  \[
-  P(A \cup B) = P(A) + P(B).
-  \]
-  In contract, possibility theory uses the concept of triangular norms (t-norms) to model the logical AND (conjunction) of events (\cite{DUBOIS01021982}). A common t-norm is the minimum operator, so that for events \(A\) and \(B\) with possibility distributions \( \pi_A(x) \) and \( \pi_B(x) \) respectively, the possibility distribution for the intersection is given by:
-  \[
-  \pi_{A \cap B}(x) = \min\{ \pi_A(x), \pi_B(x) \}.
-  \]
-  This indicates that the possibility of a state satisfying both \(A\) and \(B\) is determined by the less possible (the minimum) of the two. Dually, t-conorms (such as the maximum operator) are used for logical OR (disjunction):
-  \[
-  \pi_{A \cup B}(x) = \max\{ \pi_A(x), \pi_B(x) \}.
-  \]
-  Thus, while probability theory uses multiplication (for independent events) and addition (for disjoint events), possibility theory replaces these operations with min and max, respectively. This leads to a very different arithmetic of uncertainty, which can make handling incomplete information easier.
-
-\subsubsection{Fuzzy Measures and Integrals}
-Possibility measures are a subset of fuzzy messures; fuzzy measure generalizes the classical measure by disregarding additivity and requiring only monotonicity:
+\subsection{Fuzzy Measures and Integrals}
+Possibility measures are a subset of fuzzy measures, which generalize classical measures by relaxing the requirement of additivity and requiring only monotonicity:
 \[
 A \subseteq B \implies m(A) \leq m(B).
 \]
-In decision theory, instead of using the expected value (computed via the Lebesgue integral), one can aggregate outcomes using the Sugeno integral, a nonlinear operator based on the max and min operations. The Sugeno integral provides an analogue to the Lebesgue integral and is particularly useful in qualitative decision-making scenarios where the precise numeric integration of probabilities is not possible or desired (\cite{Dubois:2015})
-  
-For example, a decision-maker employing possibility theory might adopt a maximin strategy: they evaluate each action by the minimum degree of satisfaction (or necessity) it guarantees, and then select the action with the highest such minimum value. Conversely, a maximax strategy would rely on the maximum possible outcome (reflecting an optimistic bias).  
+In possibility theory, rather than using the expected value computed via the Lebesgue integral, it is possible to aggregate outcomes using the Sugeno integral—a nonlinear operator based on the max and min operations. The Sugeno integral serves as an analogue to the Lebesgue integral and is particularly useful in qualitative decision-making scenarios where precise numeric integration is neither possible nor desired (\cite{Dubois:2015}).
 
-TODO add explanation for this. 
-
-\subsubsection{Example}
-TODO 
-Lets consider the case of rolling a dice. Let event $a$ and $b$ be the event where the dice yields $4$ and $5$ respectively. Without any information about the result of the dice throw, the probability are $1/6$ each where as the possibility of the events is $1$. If one is informed 
 \section{Reinforcement Learning}
 
-Reinforcement Learning is a machine learning framework for agent sequential descision making in an environment. At each timestep the agent observes the state in which it currently is, takes an action which moves it to another state and collects reward (the reward collected can be zero). The notion of Actions, States, Rewards and the associated stochastic transitions is formally known as the Markov Decision Porcess (MDP). Here we will discuss some core Reinforcement Learning concepts along with previous work employing possibility theory. 
+Reinforcement Learning is a machine learning framework for an agent's sequential decision making in an environment. At each timestep, the agent observes the state in which it currently is, takes an action which moves it to another state, and collects a reward (the reward collected can be zero). \par
 
-\subsection{Markov Decision Provess}
+The notion of Actions, States, Rewards, and the associated stochastic transitions is formally known as the Markov Decision Process (MDP). Here we will discuss some core Reinforcement Learning concepts along with previous work employing possibility theory. \par
 
-A MDP is defined by the mathematical tuple $(S, A, P, R, \gamma)$ where 
+\subsection{Markov Decision Process}
+
+A MDP is defined by the mathematical tuple $(S, A, P, R, \gamma)$ where \par
+
 \begin{itemize}
-  \item \textbf{State Space $S$:} refers to all possible states in the an environment.  
-  \item \textbf{Action Space $A_s$:}  refers to all possible actions available to the agent in the state $s$. In some formulations, the action space $A$ might be same across states. 
-  \item \textbf{Transition Probabilities $P(s' \mid s, a)$:}  refers to the probability to transition to state $s'$ by taking the action $a$ in state in $s$. These transtions can be be either stochastic or determinestic.   
-  \item \textbf{Reward function $R(s, a, s')$:} is the immediate reward recieved by taking the action $a$ in state $s$ and transtioning to state $s'$. $R(s, a)$ refers to the expected reward recieved by taking action $a$ in state $s$.  
-  \item \textbf{Discount Factor $gamma$:} is the discounting factor of future rewards to determine the the current value of the current state. A reward of $1$ obtained after K steps is worth $\gamma ^ K$ at the current step. Trivially, if $\gamma$ is 1 then there is no discounting of future rewards.    
-\end{itemize}
- 
-As the name suggests, the Markov descision process also satisfies the Markov Propery, i.e, the next state $s'$ and the reward $r$ only depends on the current state action pair $(s, a)$; all prior history is irrelevant. The agents behaviour in a state is charectarised by its policty $\pi$ where $\pi(a \mid s)$ refers to probability of the agent enacting $a$ at state $s$. The goal of reinforcement learning to find an optimal policy $\pi^*$ that maximises cummliative rewards in an MDP.  
+  \item \textbf{State Space $S$:} refers to all possible states in an environment.  
+  \item \textbf{Action Space $A_s$:} refers to all possible actions available to the agent in the state $s$. In some formulations, the action space $A$ might be the same across states. 
+  \item \textbf{Transition Probabilities $P(s' \mid s, a)$:} refers to the probability of transitioning to state $s'$ by taking the action $a$ in state $s$. These transitions can be either stochastic or deterministic.   
+  \item \textbf{Reward function $R(s, a, s')$:} is the immediate reward received by taking the action $a$ in state $s$ and transitioning to state $s'$. $R(s, a)$ refers to the expected reward received by taking action $a$ in state $s$.  
+  \item \textbf{Discount Factor $\gamma$:} is the discounting factor of future rewards to determine the current value of the current state. A reward of $1$ obtained after $K$ steps is worth $\gamma^K$ at the current step. Trivially, if $\gamma$ is 1 then there is no discounting of future rewards.    
+\end{itemize} \par
 
-$R_{t}$ refers to the random variable denoting the reward the agent rewards at timestep $t$. We can further define the cummliative rewards from the time step $t$ as 
-\[G_t = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots = \sum_{k=0}^{\infty} \gamma^k R_{t+k+1}\]
-Here both the Reward random variable and the cummliative reward random variable depend on the state at current time $t$ and the policy of the agent $\pi$. The exepected cummliative reward under a given policty is represented by the state-value function $V^{\pi}(s)$. 
+As the name suggests, the Markov decision process also satisfies the Markov Property, i.e., the next state $s'$ and the reward $r$ only depend on the current state-action pair $(s, a)$; all prior history is irrelevant. \par
+
+The agent's behaviour in a state is characterised by its policy $\pi$, where $\pi(a \mid s)$ refers to the probability of the agent enacting $a$ at state $s$. The goal of reinforcement learning is to find an optimal policy $\pi^*$ that maximises cumulative rewards in an MDP. \par
+
+$R_{t}$ refers to the random variable denoting the reward the agent receives at timestep $t$. We can further define the cumulative rewards from the time step $t$ as 
+\[G_t = R_{t+1} + \gamma R_{t+2} + \gamma^2 R_{t+3} + \cdots = \sum_{k=0}^{\infty} \gamma^k R_{t+k+1}\] \par
+
+Here, both the reward random variable and the cumulative reward random variable depend on the state at the current time $t$ and the policy of the agent $\pi$. The expected cumulative reward under a given policy is represented by the state-value function $V^{\pi}(s)$.
 \[
   V^{\pi}(s) = \EX_{\pi}[G_t \mid S_t = s]
-\]
-Similarly, a action value function (Q-value) $Q^\pi (s, a)$ can be defined as the expected cummliative return from state $s$ if the agent takes action $a$. 
- \[
-  Q^{\pi}(s) = \EX_{\pi}[G_t \mid S_t = s, A_t = a]
-\]
-These expectations quantify how good an action or state is in terms of its expected cummliative rewards. Correspondingly, two policies can be compared on a given state by comparing the value functions induced by that policy in that state. An optimal policty, hence, is the policy $\pi^*$ that induces the optimal value function $V^*(s) = \max_\pi V^\pi(s)$ and $Q^*(s, a) = \max_\pi Q^\pi(s, a)$ for all $s, a$. \par
+\] \par
 
-These expected values are also dependent on each other. 
+Similarly, an action value function (Q-value) $Q^\pi (s, a)$ can be defined as the expected cumulative return from state $s$ if the agent takes action $a$. 
+\[
+  Q^{\pi}(s) = \EX_{\pi}[G_t \mid S_t = s, A_t = a]
+\] \par
+
+These expectations quantify how good an action or state is in terms of its expected cumulative rewards. Correspondingly, two policies can be compared on a given state by comparing the value functions induced by that policy in that state. An optimal policy, hence, is the policy $\pi^*$ that induces the optimal value function $V^*(s) = \max_\pi V^\pi(s)$ and $Q^*(s, a) = \max_\pi Q^\pi(s, a)$ for all $s, a$. \par
+
+These expected values are also dependent on each other.
 \[
   V^\pi(s) = \EX_{\pi}[Q^\pi(s, A) \mid S = s]
+\]
+\[
   Q^\pi(s, a) = \EX^\pi[V^\pi(S') \mid S = s, A = a ]
-\] 
+\] \par
 
-By substituing the values further, one can construct a recusrive relationship; this is also known as the Bellman Equation.  
+By substituting the values further, one can construct a recursive relationship; this is also known as the Bellman Equation.  
 \[
   V^\pi(s) = \EX_{\pi}[ R_{t+1} + \gamma V^\pi(S_{t+1}) \mid S_{t}= s]
-\]
-The state value of the current state is just the same of the transition reward and the discounted state value of the next state. A similar relationshpip exists for the action value function as follows  
+\] \par
+
+The state value of the current state is just the same as the transition reward and the discounted state value of the next state. A similar relationship exists for the action value function as follows  
 \[
   Q^\pi(s, a) = \EX_{\pi}[ R_{t+1} + \gamma Q^\pi(S'_{t+1}, A_{t+1}) \mid S_{t}= s]
+\] \par
+
+The definition of the recursive expectations can be fully expanded as follows:
+\[
+V^{\pi}(s) = \sum_{a \in A} \pi(a \mid s) \sum_{s' \in S} P(s' \mid s, a) \left[ R(s, a, s') + \gamma V^{\pi}(s') \right]
 \]
-The defination of the recusrive expectations can be fully expanded as follows :
-\[V^{\pi}(s) = \sum_{a \in A} \pi(a \mid s) \sum_{s' \in S} P(s' \mid s, a) \left[ R(s, a, s') + \gamma V^{\pi}(s') \right] \] 
 \[
 Q^\pi(s,a) = \sum_{s'}P(s'|s,a)\big[ R(s,a,s') + \gamma \sum_{a'}\pi(a'\mid s'),Q^\pi(s',a')\big]
-\]
-For a given policy, the Bellman Equations are linear. However, for an optimal policy, we have non linear maximisation operations as follows: 
-\[
-  V^*(s) = max_{a \in A}\EX[ R_{t+1} + \gamma V^*(S_{t+1}) \mid S_{t}= s]
-\]
+\] \par
 
-This gives intuivitive result that the optimal value of a state is same as the expected value of taking the best action from the state. The same result also applies toe the Q-function:
+For a given policy, the Bellman Equations are linear. However, for an optimal policy, we have nonlinear maximisation operations as follows: 
+\[
+  V^*(s) = \max_{a \in A}\EX[ R_{t+1} + \gamma V^*(S_{t+1}) \mid S_{t}= s]
+\] \par
+
+This gives the intuitive result that the optimal value of a state is the same as the expected value of taking the best action from the state. The same result also applies to the Q-function:
 \[
 Q^*(s, a) = \EX [ R_{t+1} + \gamma \max_{a'} Q^*(S_{t+1}, a') \mid S_t = s, A_t = a ]
-\]
+\] \par
 
-In a finite state and action space, it is possible to solve the Bellman Optimality Equations to get th eopimal values using value iteration or policty iterations, making it possible to calculate $V^*$ from which it is trivial to deduce an optimal policy. However, in larger and continous environments, this is no longer feasible. Thus reinforcement learning algorithm attempt to either learn the value functins directly or learn a maximising policty by expereincing the MDPs. 
-
+In a finite state and action space, it is possible to solve the Bellman Optimality Equations to get the optimal values using value iteration or policy iteration, making it possible to calculate $V^*$ from which it is trivial to deduce an optimal policy. However, in larger and continuous environments, this is no longer feasible. Thus, reinforcement learning algorithms attempt to either learn the value functions directly or learn a maximising policy by experiencing the MDP. \par
 
 \subsection{Deep-Q-Learning (DQN)}
 
@@ -328,9 +326,68 @@ It is also possible to have deterministic policies instead of stochastic policy 
 \]
 Here, the action-value function itself is the critic, and $\mu_\theta$ is updated to maximise the Q-Value. The Q value is trained using the mini-batches, similar to in DQN.  
 
+\subsection{Model-Based Reinforcement Learning}
+The algorithms discussed earlier are all model-free, in that, none of the methods maintain an internal "model" of the environment. In contrast, there exists a category of algorithms that use and/or learn a model of the environment. This can include learning the state transitions $\hat{P}(s' \mid s, a)$ and the reward function $\hat{R}(s, a)$. The agent is able to plan with the environment model to evaluate its actions without enacting them in the real environment. \par
+
+In MDP, if the true transition and reward functions are known, it is possible to infer the optimal policies by dynamic programming, this is also referred to as planning. However, in most applications, the exact $P, R$ are unknown and the various Model Based approaches attempt to learn a model of environment through repeated interaction. The learned $P, R$ can then be used for planning in the environment. A major benefit of model based approaches is the improved sample efficiency during training as the agent is able to simulate experience using the environment model instead of taking real actions. Model Based learning can be particularly beneficial if taking samples in the real environment is costly or limited. \par 
+
+In practice, learning the model can be treated as a supervised learning task as it is possible to treat each recorded transition $(s, a, r, s')$ as a training sample for the models $\hat{P}$ and $\hat{R}$. The model can help both in action selection and with value iteration. Dyna-Q Learning is common approach for value iteration, where the Q values are updated by simulated planning steps that are intermixed with real experiences. The model can also help in action selection, for example, it is possible to do Monte Carlo Tree Search to simulate action sequences and select the best performing action.\par
+
+One of the essential challenges of model based learning is learning an accurate model. A biased or imperfect model can create result in non-optimal policies. There are many different approaches to account for this including: shorter planning horizons, uncertainty bounds on the model and ensemble models. 
+
+\section{Possibility Theory and Reinforcement Learning}
+Reinforcement Learning algorithm primarily deal with uncertainty in two different forms: aleatoric uncertainty and epistemic uncertainty. Aleatoric uncertainty refers to the uncertainty in the environment because of the inherent randomness; this could include randomness in state transitions and stochastic rewards. Epistemic uncertainty, on the other hand, refers to the uncertainty in the environment because of our lack of knowledge/ information. Possibility Theory can be helpful to evaluate and make use of the latter. 
+
+\subsection{Distributional Reinforcement Learning}
+One possible method of handling uncertainty in the environment is by maintaining distributions over $Q(s,a)$ or $V(s,a)$ instead of a single value. Along the same line, distributional Reinforcement Learning, introduced in \cite{bellemare2017}, provides a novel method to handle uncertainty in the reward distribution by modelling a distribution $Z^\pi$ over Q Values. In particular, instead of learning only 
+\[
+  Q^\pi(s,a) = \EX[Z^\pi(s,a)]
+\]
+where $Z^\pi$ is the random return, satisfying the above expectation and the recursive relationship 
+\[Z^\pi(s,a) \overset{D}{=} R(s,a) + \gamma Z^\pi(s', a')\]. 
+
+The above return also satisfies the Bellman Equation:
+\[
+Z^*(s,a) \overset{D}{=} R_{t+1} + \gamma \, Z^*\Big(S_{t+1}, \, \arg\max_{a'} \mathbb{E}\big[Z^*(S_{t+1}, a')\big]\Big)
+\]
+\par
+The algorithm C51 in \cite{bellemare2017} works by maintaining a probability distribution over 51 possible values $\{z_1, z_2, ..., Z_51\}$, which are placed uniformly over the range of returns. In particular, instead of the Q-Network outputting a single float value of state action pair, the network returns a probability tuple $(P(Z(s,a) = z_1),P(Z(s,a) = z_2), ... , P(Z(s,a) = z_51))$. For training, a target distribution is calculated as: 
+\[T(s,a) \overset{D}{=} r + \gamma Z(s', a^*)\]
+where $a^*$ is the greedy action that maximises $\EX[Z(s', a)]$. \par
+
+% TODO Address this with our algorithm using ensembles. 
+One drawback of the approach is that the two different uncertainties cannot be easily decoupled. If information about the epistemic uncertainty of the distribution was available, it would be possible to incentive the agent to explore states with less certainty. 
+
+\subsection{Possibilistic Q Learning}
+ 
+Possibilistic Q Learning, introduced by Jeremie, developed further approaches to account for both aleatoric and epestemic uncertainity in Q-Learning with the help of possibility theory. Particuarly, Jeremie utilizes the notion of Maximum expected value defined as 
+\[
+  \bar{\EX} (\Phi(\psi)) = \sup{sup}{\psi \in \Psi} \{\Phi(\psi) f_\psi(\psi)\}
+\]where $f_\psi$ is the possibility function over $\psi$. 
+Correspondingly, the most credible value of $\omega$ is the value for which the possibility function $f_\psi$ is maximised: 
+\[
+  \EX^* (\psi) = \underset{argmax}{\psi \in \Psi} f_\psi(\psi)
+\]. 
+\par 
+
+Using the above defined expected values, the following recursive relationship can be constructed on the maximum expected Q-value:
+
+\[
+Q(s,a) = \mathbb{E}_{S'}\Big[\bar{r}(s,a,S') + \max_{a'} \bar{Q}(s', a' \mid S') \Big]
+\]. 
+
+Specifically, here the model mantains a possibility function $P(\dot \mid s, a)$ over the state transitions, and the above updates the value using the notion maximum expected value with respect to the state transitions. The possibility of the state transitions is updated during training, along with the maximum expcted value. This set up promotes exploring states particularly where the possibility is high and the inivtial tabular Q learning values are set to be a maximum, this promotes exploration in the algorithm. 
+
+
+
+
+
+
 
 \chapter{Proposed Approaches}
 \section{Possibility Over Q Values}
+
+
 \section{Possibility Over Q Ensembles}
 \section{Model-Based MaxMax Possibility}
 
