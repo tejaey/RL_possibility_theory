@@ -5,31 +5,25 @@
 \usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2cm, headheight=15pt]{geometry}
 
 % Fonts and math
-\usepackage{amsmath, amssymb, bbm}
+\usepackage{amsmath, amssymb, bbm, amsthm}
 
-% Figures and subfigures
+\newtheorem{lemma}{Lemma}
 \usepackage{graphicx}
 \usepackage{subcaption}
 
-% Algorithms
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 
-% Code listings
 \usepackage{listings}
 
-% Bibliography
 \usepackage{natbib}
 
-% Hyperlinks
 \usepackage{hyperref}
 
-% Paragraph formatting
 \setlength{\parindent}{0pt}
 \usepackage{parskip}
 \setlength{\parskip}{\baselineskip}
 
-% Fancy headers/footers
 \usepackage{fancyhdr}
 \pagestyle{fancy}
 \fancyhf{} % clear default header/footer
@@ -37,10 +31,8 @@
 \fancyhead[R]{\thepage}  % page number
 \renewcommand{\headrulewidth}{0.4pt} % optional: adds a horizontal line in the header
 
-% Table of contents depth
 \setcounter{tocdepth}{2}
 \DeclareMathOperator{\EX}{\mathbb{E}}
-% Listings (for code)
 \lstset{
   basicstyle=\ttfamily\footnotesize,
   frame=single,
@@ -52,7 +44,6 @@
 \fancyhf{}
 \fancyhead[R]{\thepage}
 \fancyhead[L]{\leftmark}
-
 % Title Page
 \begin{document}
 \begin{titlepage}
@@ -359,36 +350,88 @@ where $a^*$ is the greedy action that maximises $\EX[Z(s', a)]$. \par
 One drawback of the approach is that the two different uncertainties cannot be easily decoupled. If information about the epistemic uncertainty of the distribution was available, it would be possible to incentive the agent to explore states with less certainty. 
 
 \subsection{Possibilistic Q Learning}
+
+Possibilistic Q Learning, as introduced by Jeremie, extends traditional Q-Learning by explicitly accounting for both aleatoric and epistemic uncertainty through the use of possibility theory. In this framework, epistemic uncertainty is modeled with possibility functions, allowing for a clear separation between uncertainty due to inherent randomness (aleatoric) and uncertainty due to lack of knowledge (epistemic). \par
+
+A key concept in this approach is the \emph{maximum expected value}, defined as
+\[
+\bar{\mathbb{E}}\big(\Phi(\psi)\big) = \sup_{\psi \in \Psi} \left\{ \Phi(\psi) \, f_\psi(\psi) \right\},
+\]
+where \(f_\psi\) denotes the possibility function over the parameter \(\psi\). This operator selects the highest weighted value of \(\Phi(\psi)\), thereby capturing an optimistic estimate based on the current knowledge. Correspondingly, the most credible value of \(\psi\) is given by
+\[
+\mathbb{E}^*(\psi) = \arg\max_{\psi \in \Psi} f_\psi(\psi). 
+\] \par
  
-Possibilistic Q Learning, introduced by Jeremie, developed further approaches to account for both aleatoric and epestemic uncertainity in Q-Learning with the help of possibility theory. Particuarly, Jeremie utilizes the notion of Maximum expected value defined as 
+Using these definitions, one can derive a recursive formulation for the maximum expected Q-value:
 \[
-  \bar{\EX} (\Phi(\psi)) = \sup{sup}{\psi \in \Psi} \{\Phi(\psi) f_\psi(\psi)\}
-\]where $f_\psi$ is the possibility function over $\psi$. 
-Correspondingly, the most credible value of $\omega$ is the value for which the possibility function $f_\psi$ is maximised: 
+  \bar{Q}(s,a) = \bar{\EX}_{S'}\Big[\bar{r}(s,a,S') + \max_{a'} \bar{Q}(s', a' \mid S') \Big].
+\]
+Here, \(\bar{r}(s,a,S')\) represents the expected reward computed with the possibility-based model, and \(\bar{Q}(s',a' \mid S')\) denotes the optimistic Q-value at the next state \(s'\). \par
+
+In this model, a possibility function \(P(\cdot \mid s, a)\) is maintained over the state transitions. As training progresses, this possibility function is updated along with the maximum expected value, adapting the model’s uncertainty estimates based on new observations. Since the initial Q-values in the tabular setting are set to an upper bound, the algorithm naturally favors exploration in states with high uncertainty. Over time, as more data is gathered, the optimistic estimates are refined toward the true Q-values.
+
+\chapter{Possibilistic Q Values}
+Typically in Q-Learning based algorithm, the Q-Network outputs a tuple of scalars representing the networks estimates of expected cumulative reward of the particular action $a$ in state $s$. Exploration, then, driven by external stochasticity (e.g., with \epsilon-greedy strategies). This strategy is unable to account for the aleatoric uncertainties in the environment and the models own epistemic uncertainty in the estimated Q values. By representing uncertainty, it can be possible to guide the agent to explore actions with higher uncertainty to gather more experience (in the form of transitions $(s, a, r, s')$) and increase certainty in its Q values. Here we will present two different algorithms using possibility distributions over $Q(s,a)$. \par
+
+\section{Mean-Variance Networks}
+In this proposed possibilistic approach, instead of focusing on a single scalar for $Q(s,a)$, we will evaluate a possibility distribution over the Q-values with $f(q \mid s, a)$. The distribution will be paratrised by a mean and a variance - i.e, the Q-Network will output two parameters for each state-action pair:
+\begin{itemize}
+  \item Mean $\mu(s,a)$ which is the expected value of the return - this is equivalent to $Q(s,a)$
+  \item Variance $/sigma^2(s,a)$ which quantifies the uncertainty in the value of $\mu(s,a)$
+\end{itemize}
+
+Together, the above define a Gaussian-like membership function for the state-action pair:
 \[
-  \EX^* (\psi) = \underset{argmax}{\psi \in \Psi} f_\psi(\psi)
+  f(q \mid s, a) = exp\big( - \frac{(q-\mu(s,a))^2}{2\sigma^2(s,a)}\big)
+\]\par
+
+The above membership function by definition satisfies the normalisation condition: $\sup_q f(q \mid s, a) = 1$, which is achieved at $q = \mu(s,a)$, aligning with the intuitive belief that the most 'credible' value is the mean.  \par
+
+A possibilistic bellman equation can be formulated for the above. For the observed transition $(s,a,r, s')$, we can select action $a' = \overset{argmax}{a'} \mu(s', a')$ and obtain a target possibility distribution modelled by 
+\[
+  \mu_{target} = r + \gamma \mu(s', a')
+\]
+\[
+  \sigma^2_{target} = \gamma^2\sigma^2(s', a')
 \]. 
-\par 
 
-Using the above defined expected values, the following recursive relationship can be constructed on the maximum expected Q-value:
-
+This follows directly by adjusting the distributed in 
 \[
-Q(s,a) = \mathbb{E}_{S'}\Big[\bar{r}(s,a,S') + \max_{a'} \bar{Q}(s', a' \mid S') \Big]
+  Q(s,a) = r + \gamma \overset{max}{a'}Q(s', a;)
+\]
+Thus the target distribution can be modelled as:
+\[
+  \mathbb{T}Q(s,a) ~ \mathbb{N}(r + \gamma \mu(s', a'), \gamma^2 \sigma^2(s', a'))
+\]
+Importantly, we can notice that the $\gamma^2$ term with the variance constantly decrease the variance. In particular, if the mean estimate is accurate then then overtime the variance should decrease - reflecting an increase in certainty in the $\mu$ estimates. \par 
+% Here, we will focus on environments that have deterministic state transitions and reward functions.
+To update the network, the discrepancy between the target distribution and the original distribution must be minimised. Divergence metrics common in probability theory can be used a proxy for distance between the possibilistic distributions. In particular, we can consider the Kullback-leibler divergence and the Wasserstein-2 metric, both of which have a closed form solution over Gaussian distributions. 
+The $D_{KL}$ evaluates to 
+\[
+D_{\mathrm{KL}} \left( \mathcal{N}(\mu_1, \sigma_1^2) \,\|\, \mathcal{N}(\mu_2, \sigma_2^2) \right) = 
+\frac{1}{2} \left[
+\log \left( \frac{\sigma_2^2}{\sigma_1^2} \right) +
+\frac{\sigma_1^2}{\sigma_2^2} +
+\frac{(\mu_1 - \mu_2)^2}{\sigma_2^2} - 1
+\right]
+\]
+and the Wasserstein-2 Metric can be calculated as 
+\[
+W_2^2\left( \mathcal{N}(\mu_1, \sigma_1^2), \mathcal{N}(\mu_2, \sigma_2^2) \right) =
+(\mu_1 - \mu_2)^2 + (\sigma_1 - \sigma_2)^2
 \]. 
+Here the Wasserstein-2 metric is the same as a Mean-Squared error between the networks parameters.  \par
 
-Specifically, here the model mantains a possibility function $P(\dot \mid s, a)$ over the state transitions, and the above updates the value using the notion maximum expected value with respect to the state transitions. The possibility of the state transitions is updated during training, along with the maximum expcted value. This set up promotes exploring states particularly where the possibility is high and the inivtial tabular Q learning values are set to be a maximum, this promotes exploration in the algorithm. 
-
-
-
-
+Information about uncertainty can be utilised to incentive exploration which is a major challenge in. In particular we will consider two different methods of action selection.  
 
 
 
 \chapter{Proposed Approaches}
-\section{Possibility Over Q Values}
 
 
-\section{Possibility Over Q Ensembles}
+
+
+\section{Possibilistic Ensemble Q-Network}
 \section{Model-Based MaxMax Possibility}
 
 \chapter{Experimental Setup}
@@ -409,8 +452,41 @@ Specifically, here the model mantains a possibility function $P(\dot \mid s, a)$
 \bibliography{fypb.bib}
 
 \appendix
+
 \chapter{Extra Details}
-Code, logs, math, anything supplementary.
+
+\begin{lemma}[Closed Form Maximum of $q \cdot f(q)$ for Gaussian Possibility]
+\label{lem:max_expected_gauss}
+Let $f(q)$ be a Gaussian-shaped possibility function: 
+\[ f(q) = \exp\left(-\frac{(q - \mu)^2}{2\sigma^2} \right) \]
+Define
+\[
+g(q) = q \cdot f(q) = q \cdot \exp\left(-\frac{(q - \mu)^2}{2\sigma^2} \right).
+\]
+Then the supremum of \( g(q) \) over \( q \in \mathbb{R} \) is achieved at
+\[
+q^* = \frac{\mu + \sqrt{\mu^2 + 4\sigma^2}}{2}.
+\]
+\end{lemma}
+
+\begin{proof}
+We differentiate \( g(q) \) with respect to \( q \):
+\[
+g(q) = q \cdot \exp\left(-\frac{(q - \mu)^2}{2\sigma^2} \right),
+\]
+\[
+g'(q) = \exp\left(-\frac{(q - \mu)^2}{2\sigma^2} \right) \left( 1 - \frac{q(q - \mu)}{\sigma^2} \right).
+\]
+Setting \( g'(q) = 0 \), we solve
+\[
+1 - \frac{q(q - \mu)}{\sigma^2} = 0 \quad \Rightarrow \quad q^2 - \mu q - \sigma^2 = 0.
+\]
+Solving this quadratic equation yields
+\[
+q^* = \frac{\mu + \sqrt{\mu^2 + 4\sigma^2}}{2}.
+\]
+This is the unique maximizer of \( g(q) \) over \( \mathbb{R} \), as \( g''(q) < 0 \) at this point.
+\end{proof}
 
 \end{document}
 
