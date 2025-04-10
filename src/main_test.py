@@ -218,7 +218,7 @@ def training_loop_ac(
 
 
 # max max approach
-if __name__ == "__main__":
+if __name__ != "__main__":
     iternumber = 2
     for env_name in [
         "HalfCheetah-v5",
@@ -408,9 +408,9 @@ if __name__ != "__main__":
     )
 
 ## normal AC
-if __name__ != "__main__":
+if __name__ == "__main__":
     # Example: Visualize LunarLander performance
-    env: gym.Env = gym.make("LunarLander-v3", render_mode="rgb_array")
+    env: gym.Env = gym.make("CartPole-v1", render_mode="rgb_array")
     replay_buffer = ReplayBuffer(capacity=100000)
     state_dim: int = env.observation_space.shape[0]
     action_dim: int = env.action_space.n
@@ -418,12 +418,12 @@ if __name__ != "__main__":
     configs = {
         "update_steps": 8,
         "action_dim": action_dim,
-        "batch_size": 128,
-        "episodes": 100,
+        "batch_size": 256,
+        "episodes": 500,
         "eps": 0.1,
         "tau_soft_update": 0.05,
     }
-    GAMMA = 1
+    GAMMA = 0.95
     ensemble_loss_funcs = []
     loss_names = []
 

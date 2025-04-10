@@ -38,7 +38,8 @@
   frame=single,
   breaklines=true
 }
-
+\usepackage{xcolor}
+\newcommand\myworries[1]{\textcolor{red}{#1}}
 % Header
 \pagestyle{fancy}
 \fancyhf{}
@@ -249,7 +250,7 @@ In a finite state and action space, it is possible to solve the Bellman Optimali
 
 Q-Learning is a category of reinforcement learning algorithms that focus on on learning the optimal $Q^*$ value for each state action pair by iterative updates. In its simple tabular form, the iteration happens as follows:
 \[Q(s, a) \leftarrow Q(s, a) + \alpha [ r + \gamma \max_{a'} Q(s', a') - Q(s, a) ]\]
-Here $alpha$ is the learning rate and $(s,a,r,s')$ is one of the expericnced transitions. This update is based on the Bellman Update discussed before. \cite{Watkins1992} showed that this tabular Q-Learning converges to the optimal value if all states are visited infinitely during the learning process and the learning rates satisfy: 
+Here $alpha$ is the learning rate and $(s,a,r,s')$ is one of the experienced transitions. This update is based on the Bellman Update discussed before. \cite{Watkins1992} showed that this tabular Q-Learning converges to the optimal value if all states are visited infinitely during the learning process and the learning rates satisfy: 
 
 \[
 \sum_{t=0}^{\infty} \alpha_t(s, a) = \infty
@@ -258,13 +259,13 @@ Here $alpha$ is the learning rate and $(s,a,r,s')$ is one of the expericnced tra
 \sum_{t=0}^{\infty} \alpha_t^2(s, a) < \infty
 \]
 
-As mentioned before, the tabular approach to Q-Learning dis not feasible for continuous or large environments. Deep Q Learning provides an alternative method to functionally approximate the Q-Values using deep neural networks. The function $Q(s, a \mid \theta)$ is parametrised by weights $\theta$. In general, it is possibel to to approximate the Q-Values using other methods (such as Linear Functions).
+As mentioned before, the tabular approach to Q-Learning dis not feasible for continuous or large environments. Deep Q Learning provides an alternative method to functionally approximate the Q-Values using deep neural networks. The function $Q(s, a \mid \theta)$ is parametrised by weights $\theta$. In general, it is possible to to approximate the Q-Values using other methods (such as Linear Functions).
 The method for doing Depp Q Learning was first introduced \cite{Mnih2015} where the authors achieved human level performance in various ATARI games. In their paper, the network takes the state of the game (in the form of a raw image) and outputs the approximate Q-Values for each of the set of discrete actions. Common to other Deep Learning Method, Stochastic Gradient Descent is used to update the Q networks, with the loss function derived from the temporal difference (TD) error. Particularly, the Bellman Backup is used as the target for training, i.e the update target $y$ for the transition $(s, a, r, s')$ is: 
 
 \[
   y = r + \gamma max_{a'} Q(s', a'; \Theta^-)
 \]
-where $\theta^-$ is the parameters of the target network. A taget network is typically a lagged copy of the main Q-Netowrk and helps stabalise the learning process. The target network can either be continously updated using Polyak Averaging $\theta^- \leftarrow \theta^-+ \alpha (\theta - \theta^-)$ or it can be a copied from the main netowrk periodically during the learning process. 
+where $\theta^-$ is the parameters of the target network. A target network is typically a lagged copy of the main Q-Network and helps stabilise the learning process. The target network can either be continuously updated using Polyak Averaging $\theta^- \leftarrow \theta^-+ \alpha (\theta - \theta^-)$ or it can be a copied from the main network periodically during the learning process. 
 The loss function can be constructed to minimise the mean squared error between $y$ and its own outputs: 
 \[
   L(\theta) = \EX[(y - Q(s, a, ; \theta))^2]
@@ -351,7 +352,7 @@ One drawback of the approach is that the two different uncertainties cannot be e
 
 \subsection{Possibilistic Q Learning}
 
-Possibilistic Q Learning, as introduced by Jeremie, extends traditional Q-Learning by explicitly accounting for both aleatoric and epistemic uncertainty through the use of possibility theory. In this framework, epistemic uncertainty is modeled with possibility functions, allowing for a clear separation between uncertainty due to inherent randomness (aleatoric) and uncertainty due to lack of knowledge (epistemic). \par
+Possibilistic Q Learning, as introduced by \cite{thomas2025}, extends traditional Q-Learning by explicitly accounting for both aleatoric and epistemic uncertainty through the use of possibility theory. In this framework, epistemic uncertainty is modeled with possibility functions, allowing for a clear separation between uncertainty due to inherent randomness (aleatoric) and uncertainty due to lack of knowledge (epistemic). \par
 
 A key concept in this approach is the \emph{maximum expected value}, defined as
 \[
@@ -373,58 +374,196 @@ In this model, a possibility function \(P(\cdot \mid s, a)\) is maintained over 
 \chapter{Possibilistic Q Values}
 Typically in Q-Learning based algorithm, the Q-Network outputs a tuple of scalars representing the networks estimates of expected cumulative reward of the particular action $a$ in state $s$. Exploration, then, driven by external stochasticity (e.g., with \epsilon-greedy strategies). This strategy is unable to account for the aleatoric uncertainties in the environment and the models own epistemic uncertainty in the estimated Q values. By representing uncertainty, it can be possible to guide the agent to explore actions with higher uncertainty to gather more experience (in the form of transitions $(s, a, r, s')$) and increase certainty in its Q values. Here we will present two different algorithms using possibility distributions over $Q(s,a)$. \par
 
+
 \section{Mean-Variance Networks}
-In this proposed possibilistic approach, instead of focusing on a single scalar for $Q(s,a)$, we will evaluate a possibility distribution over the Q-values with $f(q \mid s, a)$. The distribution will be paratrised by a mean and a variance - i.e, the Q-Network will output two parameters for each state-action pair:
+
+In this proposed possibilistic approach, instead of focusing on a single scalar for \(Q(s,a)\), we evaluate a possibility distribution over the Q-values, denoted by \(f(q \mid s, a)\). The distribution is parameterized by a mean and a variance; that is, the Q-network outputs two parameters for each state–action pair:
 \begin{itemize}
-  \item Mean $\mu(s,a)$ which is the expected value of the return - this is equivalent to $Q(s,a)$
-  \item Variance $/sigma^2(s,a)$ which quantifies the uncertainty in the value of $\mu(s,a)$
+  \item \textbf{Mean} \(\mu(s,a)\) --- the expected value of the return (equivalent to \(Q(s,a)\)).
+  \item \textbf{Variance} \(\sigma^2(s,a)\) --- which quantifies the uncertainty in the value of \(\mu(s,a)\).
 \end{itemize}
 
-Together, the above define a Gaussian-like membership function for the state-action pair:
+Together, these parameters define a Gaussian-like membership function for the state–action pair:
 \[
-  f(q \mid s, a) = exp\big( - \frac{(q-\mu(s,a))^2}{2\sigma^2(s,a)}\big)
-\]\par
-
-The above membership function by definition satisfies the normalisation condition: $\sup_q f(q \mid s, a) = 1$, which is achieved at $q = \mu(s,a)$, aligning with the intuitive belief that the most 'credible' value is the mean.  \par
-
-A possibilistic bellman equation can be formulated for the above. For the observed transition $(s,a,r, s')$, we can select action $a' = \overset{argmax}{a'} \mu(s', a')$ and obtain a target possibility distribution modelled by 
-\[
-  \mu_{target} = r + \gamma \mu(s', a')
+  f(q \mid s, a) = \exp\!\left(-\frac{(q-\mu(s,a))^2}{2\sigma^2(s,a)}\right).
 \]
+By definition, this membership function satisfies the normalization condition
 \[
-  \sigma^2_{target} = \gamma^2\sigma^2(s', a')
-\]. 
-
-This follows directly by adjusting the distributed in 
-\[
-  Q(s,a) = r + \gamma \overset{max}{a'}Q(s', a;)
+  \sup_q f(q \mid s, a) = 1,
 \]
-Thus the target distribution can be modelled as:
+which is achieved at \(q = \mu(s,a)\). This aligns with the intuitive belief that the most credible value of the return is the mean.
+
+\subsection{Possibilistic Bellman Equation}
+
+A possibilistic Bellman equation can be formulated for the above. Given an observed transition \((s,a,r,s')\), we select the action 
 \[
-  \mathbb{T}Q(s,a) ~ \mathbb{N}(r + \gamma \mu(s', a'), \gamma^2 \sigma^2(s', a'))
+  a' = \arg\max_{a'} \mu(s', a')
 \]
-Importantly, we can notice that the $\gamma^2$ term with the variance constantly decrease the variance. In particular, if the mean estimate is accurate then then overtime the variance should decrease - reflecting an increase in certainty in the $\mu$ estimates. \par 
-% Here, we will focus on environments that have deterministic state transitions and reward functions.
-To update the network, the discrepancy between the target distribution and the original distribution must be minimised. Divergence metrics common in probability theory can be used a proxy for distance between the possibilistic distributions. In particular, we can consider the Kullback-leibler divergence and the Wasserstein-2 metric, both of which have a closed form solution over Gaussian distributions. 
-The $D_{KL}$ evaluates to 
+and define the target parameters as:
+\begin{align*}
+  \mu_{\text{target}} &= r + \gamma\,\mu(s', a'), \\
+  \sigma^2_{\text{target}} &= \gamma^2\,\sigma^2(s', a').
+\end{align*}
+This follows directly from the conventional Bellman equation for Q-learning,
 \[
-D_{\mathrm{KL}} \left( \mathcal{N}(\mu_1, \sigma_1^2) \,\|\, \mathcal{N}(\mu_2, \sigma_2^2) \right) = 
-\frac{1}{2} \left[
-\log \left( \frac{\sigma_2^2}{\sigma_1^2} \right) +
-\frac{\sigma_1^2}{\sigma_2^2} +
-\frac{(\mu_1 - \mu_2)^2}{\sigma_2^2} - 1
-\right]
+  Q(s,a) = r + \gamma\,\max_{a'} Q(s', a'),
 \]
-and the Wasserstein-2 Metric can be calculated as 
+and, in our case, we propagate both the mean and the uncertainty. Thus, the target distribution can be modeled as:
 \[
-W_2^2\left( \mathcal{N}(\mu_1, \sigma_1^2), \mathcal{N}(\mu_2, \sigma_2^2) \right) =
-(\mu_1 - \mu_2)^2 + (\sigma_1 - \sigma_2)^2
-\]. 
-Here the Wasserstein-2 metric is the same as a Mean-Squared error between the networks parameters.  \par
+  \mathcal{T}Q(s,a) \sim \mathcal{N}\Bigl(r + \gamma\,\mu(s', a'),\, \gamma^2\,\sigma^2(s', a')\Bigr).
+\]
+Note that the \(\gamma^2\) factor in the variance indicates that, if the mean estimate is accurate, then over time the variance should decrease, reflecting an increase in certainty regarding the \(\mu\) estimates.
 
-Information about uncertainty can be utilised to incentive exploration which is a major challenge in. In particular we will consider two different methods of action selection.  
+\subsection{Loss Function}
+
+To update the network, the discrepancy between the target distribution and the current estimated distribution must be minimized. Divergence metrics common in probability theory serve as proxies for a distance measure between our possibilistic distributions. In particular, we consider:
+
+\subsubsection{Kullback--Leibler Divergence}
+
+For two Gaussian distributions, the KL divergence is given by
+\[
+  D_{\mathrm{KL}} \Bigl( \mathcal{N}(\mu_1, \sigma_1^2) \,\|\, \mathcal{N}(\mu_2, \sigma_2^2) \Bigr)
+  = \frac{1}{2} \left[
+    \log \left( \frac{\sigma_2^2}{\sigma_1^2} \right) +
+    \frac{\sigma_1^2}{\sigma_2^2} +
+    \frac{(\mu_1 - \mu_2)^2}{\sigma_2^2} - 1
+  \right],
+\]
+which measures how "surprised" the current estimate \(\mathcal{N}(\mu_1, \sigma_1^2)\) would be if the target were \(\mathcal{N}(\mu_2, \sigma_2^2)\). A note about $D_{KL}$ is in the Appendix \ref{appendix:kl}.
+\subsubsection{Wasserstein-2 Metric}
+
+The Wasserstein-2 metric (also known as the 2nd-order Wasserstein distance) between two Gaussian distributions is
+\[
+  W_2^2\Bigl(\mathcal{N}(\mu_1, \sigma_1^2),\,\mathcal{N}(\mu_2, \sigma_2^2)\Bigr)
+  = (\mu_1 - \mu_2)^2 + (\sigma_1 - \sigma_2)^2.
+\]
+This metric provides a geometric measure of the distance between the two distributions, incorporating both the differences in means and differences in spread, and in our case is equivalent to a mean-squared error between the network parameters.
+
+\subsection{Action Selection Methods}
+
+Information about uncertainty can be utilized to incentivize exploration. We consider two different methods of action selection.
+
+\subsubsection{Log-Variance-Weighted Selection}
+In this method, the action is chosen by combining the mean and the log-variance of the Q-value:
+\[
+  a^* = \arg\max_{a} \left\{ \mu(s, a) + \beta \cdot \log \sigma^2(s, a) \right\}.
+\]
+Here, \(\beta\) is a hyperparameter that adjusts the influence of the uncertainty (measured by \(\log \sigma^2(s,a)\)) on the action selection. \myworries{Why is this a good way to choice, why not without the log - could be related to information theory (?)}
+%The use of the logarithm helps to stabilize the variance measure, compressing large variance values into a more manageable scale; it also naturally emerges in Gaussian models (as in the expression for differential entropy), making it a justified bonus for exploration when uncertainty is high.
+
+\subsubsection{Maximum Expected Value}
+
+Alternatively, we can utilize the notion of maximum expected value introduced in \cite{thomas2025}. The optimistic estimate of the Q-value is defined as
+\[
+  \bar{Q}(s,a) = \sup_{q \in \mathbb{Q}} \{ q \, f(q \mid s,a) \}.
+\]
+Under the assumption that \(f(q \mid s,a)\) is a Gaussian possibility function, this maximum has a closed-form solution (see Lemma~\ref{lem:max_expected_gauss} in Appendix):
+\[
+  \bar{Q}(s,a) = \frac{\mu(s,a) + \sqrt{\mu(s,a)^2 + 4\sigma^2(s,a)}}{2}.
+\]
+% This formulation captures both the central tendency and the epistemic uncertainty, yielding an optimistic estimate that drives exploration naturally when the uncertainty (variance) is high, and reduces to the mean as uncertainty decreases.
+%
+% \section{Atomic Q Values}
+% As discussed before, \cite{bellemare2017} introduced distributional RL, which paramtrised a distrbituion over Q-Values using fixed atomic values and generating probabilities over those fixed atoms. This could potentially be enhanced using possibility theory - ie - generating possibility values of the canonical atomic returns.\par
+%
+% Let $f(q \mid s, a)$ be the mapping from $q \in \mathbb{Q}$ where $\mathbb{Q}$ is the finite set of possible q values to the possibility of that q value for the state-action pair.  An informed prior could be formed over the $Q$ values by setting $f(q \mid s, a) = 1 \forall q, s, a$, i.e. initially all values of $q$ are considered fully possible. \par
+%
+% % TODO change the above from set to an ordered tuple, with q_j 
+% %
+%
+% For a transition $(s, a, r, s')$, we can form a likelihood function by using a Gaussian Kernel, i.e the likelyhood of observering return $r$ given the true return is at $q_j$ as follows 
+% \[
+%   p_{R}(r \mid q_j) = exp(-frac{(q_j - r)^2}{2\sigma^2})
+% \] \par
+%
+% The above likelihood can be used to update the possibility function $f(q \mid s, a)$ as 
+% \[
+%   f(q_j \mid s, a) = \frac{ p_R(r \mid q_j) f(q_j \mid s, a)}{\underset{sup}{k \in \{1, 2, \dots, N} p_R(r \mid q_k) f(q_k \mid s, a)}
+% \]
+% Since $f(q_j \mid s, a)$ is initialised to be 1, the first update is just the ratio of the likelihood ratios. 
+%
+% It can be seen that there always exists a $\forall s, a \exists j s.t. f(q_j \mid s, a,) = 1$, satisfying the normalization condition. In the discrete approach, the function $f(q_j \mid s, a)$ can be parametrised with a table. The similar maximum expected value method could be used again.
+% \[
+%   \bar{Q}(s, a) = \sup{j \in {1, \dots , N}} \{q_j f(q_j \mid s, a)\}
+% \]
+% This means initially, all high potential actions are chosen, but with learning the credibility of overly optemstic $q_j$ values should decrease and the $\bar{Q}$ should select correct Q-values with high credibility. 
+%
+% This can be generalised to deep learning case by using a deep neural network based functional approximator for $f(q_j \mid s, a)$. 
+%
+% A Bellman Target distribution can be formulated as 
+% \[
+% \mathbb{T}Q = r + \gamma \tilde{f}(s' a') \] Where $a'$ is the argmax for the for $\bar{Q}$. \myworries{How to account for the shift here?} For the update in the deep learning case, the possibility distribtion has to be renomrliased $f'(q_j \mid s, a ) = f(q_j \mid s, a)/ sup f$
+%
+% A loss function such as the L2 divergence loss can be used to to do the gradient descent. 
+% % possibility ema
+%
+% %for i in range(online_qnet.num_ensemble):
+% %            online_qnet.possibility[i] = (1 - self.ALPHA) * online_qnet.possibility[
+% %                i
+% %            ] + self.ALPHA * candidate_poss[i]
+%
 
 
+\myworries{We can try an ensemble of mean variance networks, where the $\sigma_i(s, a)$ can be viewed as being proportional to the certainity of that meanvar network for that $(s,a)$ pair.}
+
+\section{Atomic Q Values}
+\myworries{TODO: implement the code for this.}\par
+As discussed before, \cite{bellemare2017} introduced distributional RL, which parameterizes a distribution over Q-values using fixed atomic values and assigns probabilities to these fixed atoms. This approach can potentially be enhanced using possibility theory—that is, by generating possibility values for the canonical atomic returns.
+
+Let \( f(q \mid s, a) \) be the mapping that assigns to each \( q \in \mathbb{Q} \) (where \(\mathbb{Q}\) is a finite ordered tuple of possible \(q\) values, e.g., \(\{q_1, q_2, \dots, q_N\}\)) the possibility that \(q\) is the true Q-value for the state–action pair \((s,a)\). An informed prior over the Q-values can be formed by setting 
+\[
+f(q \mid s, a) = 1 \quad \forall\, q \in \mathbb{Q},\, s,\, a,
+\]
+i.e., initially all values of \(q\) are considered fully possible.
+
+For a transition \((s, a, r, s')\), we can form a likelihood function by using a Gaussian kernel. Specifically, the likelihood of observing a reward \(r\) given that the true return is \(q_j\) is defined as:
+\[
+p_{R}(r \mid q_j) = \exp\!\left(-\frac{(q_j - r)^2}{2\sigma^2}\right).
+\]
+
+This likelihood is used to update the possibility function \( f(q \mid s, a) \) via a possibilistic version of Bayes' rule. The updated possibility of the atom \(q_j\) is given by:
+\[
+f(q_j \mid s, a) \leftarrow \frac{p_R(r \mid q_j)\, f(q_j \mid s, a)}{\displaystyle \sup_{k \in \{1, 2, \dots, N\}} \bigl\{p_R(r \mid q_k)\, f(q_k \mid s, a)\bigr\}}.
+\]
+Since \( f(q_j \mid s, a) \) is initialized to 1 for all \(q_j\), the first update simplifies to the ratio of likelihoods.
+
+Note that by construction, for every \(s,a\) there exists at least one \(j\) such that 
+\[
+f(q_j \mid s, a) = 1,
+\]
+satisfying the normalization condition in possibility theory.
+
+In the discrete setting, the function \( f(q_j \mid s, a) \) can be parameterized with a table. The optimistic Q-value can then be computed using the maximum expected value method:
+\[
+\bar{Q}(s, a) = \sup_{j \in \{1, \dots, N\}} \{q_j\, f(q_j \mid s, a)\}.
+\]
+This means that initially, when the possibility scores are all 1, the maximum Q-value is chosen (i.e., all actions appear highly promising). As learning proceeds, the credibility of overly optimistic \(q_j\) values will decrease and \(\bar{Q}(s,a)\) will favor the Q-values with high credibility.
+
+This framework can be generalized to the deep learning case by using a deep neural network as a function approximate for \( f(q_j \mid s, a) \).
+
+A Bellman target distribution can be formulated as
+\[
+\mathcal{T}Q = r + \gamma\, f(s', a'),
+\]
+where \( a' = \arg\max_{a} \bar{Q}(s',a) \). \myworries{How to account for the shift here?} For the deep learning update, the possibility distribution must be renormalized as follows:
+\[
+f'(q_j \mid s, a ) = \frac{f(q_j \mid s, a)}{\displaystyle \sup_{q \in \mathbb{Q}} f(q \mid s, a)}.
+\]
+
+A loss function such as the \(L_2\) divergence loss can be used for gradient descent. For example, if \(\hat{f}(q_j \mid s, a)\) denotes the target possibility distribution obtained via the Bellman backup, we can define the loss as:
+\[
+L(s,a) = \sum_{j=1}^{N} \Bigl( f(q_j \mid s, a) - \hat{f}(q_j \mid s, a) \Bigr)^2.
+\]
+Minimizing this loss updates the network parameters so that the predicted possibility distribution aligns with the target distribution.
+
+\chapter{Possibilistic Q Ensembles}
+
+Epistemic uncertainty can be modelled by having a possibility distribution over of Q-Value functions; practically, this can be achieved by training an ensemble of Q-Networks, where each network represents some hypothesis of possible Q functions. This can be interpreted as taking samples from a posterior distribution of possible Q-values, providing a approximation of the agents uncertainty over the state action value. In particular, the different networks should disagree over under explored $(s,a)$ pairs, indicating uncertainty about that environment - conversely if the networks generally agree then the region is likely well explored. There are 3 different ways we can explore this:
+\begin{itemize}
+  \item \textbf{Possibility Distribution:} A possibility distribution $p_i$ can be maintained for each network $q_i \in \mathbb{QN}$ where $\mathbb{QN}$  is the set of Q-Networks. $p_i$ quantifies the models belief in $Q_i$ given the evidence so far. Initially, each network can be assigned a possibility of 1 to represent an uniformed state. As learning progresses we can adjust the possibility of each network with their respective likelihoods.  
+  \item \textbf{Mean-Var} \myworries{Mean Variance networks themselves provide a representation of uncertainity for each network in the ensemble. Where a high $\mu_i(s,a)$ represents a lower possibility/ certainity in that network. This can allow us to train the network on independent data and still get valid uncertainty/ belief values over the networks that are $s,a$ specific and not global. We still need to explore this.} 
+  \item \textbf{Just the Ensemble:} \myworries{The ensemble, by disagreement or agreement over q-values represent certainty or uncertainty. still need to explore this?}
+\end{itemize}
 
 \chapter{Proposed Approaches}
 
@@ -488,5 +627,35 @@ q^* = \frac{\mu + \sqrt{\mu^2 + 4\sigma^2}}{2}.
 This is the unique maximizer of \( g(q) \) over \( \mathbb{R} \), as \( g''(q) < 0 \) at this point.
 \end{proof}
 
+
+\section*{Kullback-Leibler Divergence} \label{appendix:kl}
+In \cite{cover1991}, the relative entropy (or Kullback-Leibler divergence) is introduced as the expected logarithm of the likelihood ratio. It measures the inefficiency of assuming that the distribution is \(q\) when the true distribution is \(p\). 
+%For instance, if the true distribution of a random variable is known, the optimal code will have an average description length of \(H(p)\). However, if one uses a code based on distribution \(q\), the average length increases to \(H(p) + D(p\|q)\).
+
+\subsection*{Discrete Case}
+For discrete probability mass functions \(p(x)\) and \(q(x)\), the KL divergence is defined as
+\[
+D(p\|q)= \sum_{x} p(x) \log \frac{p(x)}{q(x)}.
+\]
+
+\subsection*{Continuous Case}
+For continuous probability density functions \(p(x)\) and \(q(x)\), the KL divergence is defined as
+\[
+D(p\|q)= \int p(x) \log \frac{p(x)}{q(x)}\, dx.
+\]
+
+\subsection*{KL Divergence Between Two Gaussian Distributions}
+Consider two Gaussian distributions:
+\[
+p(x) = \mathcal{N}(\mu_1,\sigma_1^2), \quad q(x) = \mathcal{N}(\mu_2,\sigma_2^2).
+\]
+The KL divergence is given by
+\[
+\begin{aligned}
+KL(p\|q) &= -\int p(x)\log q(x)\,dx + \int p(x)\log p(x)\,dx \\
+&= \frac{1}{2}\log (2\pi\sigma_2^2) + \frac{\sigma_1^2+(\mu_1-\mu_2)^2}{2\sigma_2^2} - \frac{1}{2}\Bigl(1+\log(2\pi\sigma_1^2)\Bigr) \\
+&= \log \frac{\sigma_2}{\sigma_1} + \frac{\sigma_1^2+(\mu_1-\mu_2)^2}{2\sigma_2^2} - \frac{1}{2}.
+\end{aligned}
+\]
 \end{document}
 

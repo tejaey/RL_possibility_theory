@@ -1,0 +1,129 @@
+\documentclass[14pt]{article}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{hyperref}
+% \usepackage{enumitem}
+\usepackage{mathtools}
+\usepackage{fancyhdr}
+
+\title{Background on Possibility Theory}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+Reinforcement Learning (RL) is fundamentally concerned with decision-making under uncertainty. While probability theory is the conventional tool for modeling uncertainty in RL, possibility theory offers an alternative framework that provides a different perspective---particularly for modeling \emph{epistemic uncertainty}, or uncertainty due to incomplete knowledge. Possibility theory, grounded in fuzzy set theory and many-valued logics, uses algebraic structures such as suprema, t-norms, and fuzzy measures to handle imprecision in a qualitatively different way than probability theory. In contrast to the additive nature of probability measures, possibility measures operate on a max--min (supremum--infimum) basis. In the following, we provide an in-depth discussion of the foundations of possibility theory, its algebraic underpinnings, and its relevance to RL.
+
+\section{Foundations of Possibility Theory}
+
+\subsection{Fuzzy Sets and Possibility Distributions}
+
+A \textbf{fuzzy set} $\tilde{A}$ in a universe $X$ is formally defined as a set of ordered pairs:
+\[
+\tilde{A} = \{ (x, \mu_{\tilde{A}}(x)) \mid x \in X \},
+\]
+where $\mu_{\tilde{A}}: X \to [0,1]$ is the \emph{membership function}. The value $\mu_{\tilde{A}}(x)$ indicates the degree of membership of $x$ in $\tilde{A}$.
+
+Lotfi Zadeh introduced possibility theory as an extension of fuzzy set theory in 1978. In possibility theory, the membership function is reinterpreted as a \emph{possibility distribution}:
+\[
+\pi_X(x) = \mu_{\tilde{A}}(x), \quad \forall x \in X,
+\]
+which quantifies the degree to which each outcome $x$ is \emph{plausible} given what is known. Possibility distributions satisfy the normalization condition:
+\[
+\sup_{x\in X} \pi_X(x)=1.
+\]
+
+\subsection{Possibility and Necessity Measures}
+
+For any event $A \subseteq X$, the \textbf{possibility measure} is defined as:
+\[
+\Pi(A) = \sup_{x \in A} \pi_X(x).
+\]
+Possibility measures are \textbf{maxitive}:
+\[
+\Pi(A \cup B) = \max\{\Pi(A),\Pi(B)\}.
+\]
+The \textbf{necessity measure} is defined by:
+\[
+N(A) = 1 - \Pi(A^c).
+\]
+Together, $\Pi(A)$ and $N(A)$ form a pair that provides upper and lower bounds on the plausibility of an event.
+
+\subsection{Algebraic Structure: Suprema, Infima, and t-norms}
+
+Possibility theory is underpinned by algebraic structures:
+\begin{itemize}
+    \item \textbf{Suprema and Infima}: The core operation for unions is $\sup$, giving rise to maxitivity. Dually, infima define the behavior under intersections.
+    \item \textbf{t-norms and t-conorms}: The minimum operator is used for fuzzy AND: $\pi_{A \cap B}(x) = \min\{\pi_A(x), \pi_B(x)\}$. The maximum is used for fuzzy OR.
+    \item \textbf{Fuzzy Measures and Sugeno Integral}: These generalize traditional measures and enable non-linear integration using $\min$ and $\max$ operations.
+\end{itemize}
+
+\section{Possibility Theory vs. Probability Theory}
+
+Key differences include:
+\begin{itemize}
+    \item \textbf{Additivity vs. Maxitivity}: Probability satisfies $P(A \cup B) = P(A) + P(B)$ for disjoint $A, B$. Possibility uses $\Pi(A \cup B) = \max\{\Pi(A),\Pi(B)\}$.
+    \item \textbf{Normalization}: Probabilities sum to 1; possibility distributions only require that at least one $\pi(x) = 1$.
+    \item \textbf{Joint Events}: In probability, $P(A \cap B) = P(A)P(B)$ if independent. In possibility theory, $\pi_{A \cap B}(x) = \min\{\pi_A(x), \pi_B(x)\}$.
+\end{itemize}
+
+Possibility theory is thus better suited to modeling epistemic uncertainty: when knowledge is absent, all events can be marked fully possible.
+
+\section{A Dice Roll Example}
+
+Consider a six-sided die: $X = \{1,2,3,4,5,6\}$. Let $A=\{4\}$ and $B=\{5\}$.
+
+\subsection{Probabilistic Perspective}
+
+\[
+P(A) = P(B) = \frac{1}{6}.
+\]
+
+\subsection{Possibilistic Perspective under Ignorance}
+
+\[
+\pi(x) = 1 \quad \forall x \in X \Rightarrow \Pi(A) = \Pi(B) = 1, \quad N(A) = N(B) = 0.
+\]
+
+\subsection{With Partial Information}
+
+Suppose we know the result is even: $E=\{2,4,6\}$. Define:
+\[
+\pi(x) = \begin{cases} 1 & x \in E \\ 0 & \text{otherwise} \end{cases}
+\Rightarrow \Pi(A)=1,\ \Pi(B)=0.
+\]
+
+\subsection{Fuzzy Sets: AND and OR}
+
+Define fuzzy sets $M$ (medium-high) and $E$ (even):
+\begin{align*}
+\mu_{M \cup E}(x) &= \max\{\mu_M(x), \mu_E(x)\}, \\
+\mu_{M \cap E}(x) &= \min\{\mu_M(x), \mu_E(x)\}.
+\end{align*}
+
+\subsection{Non-Additivity}
+
+\[
+P(A \cup B) = \frac{1}{6} + \frac{1}{6} = \frac{1}{3}, \quad \Pi(A \cup B) = \max\{1, 1\} = 1.
+\]
+This highlights the capacity of possibility theory to express ignorance.
+
+\section{Relevance to Reinforcement Learning}
+
+In RL, possibility theory supports:
+\begin{itemize}
+    \item \textbf{Optimism under Uncertainty}: Agents treat unvisited states as highly possible, encouraging exploration.
+    \item \textbf{Qualitative Reasoning}: Ideal when data is limited or ordinal.
+    \item \textbf{Fuzzy Inference}: Enables linguistic, interpretable rules.
+    \item \textbf{Integration with Deep RL}: Allows neural networks to output plausibility intervals (e.g., possible and necessary Q-values).
+\end{itemize}
+
+\section{Conclusion}
+
+Possibility theory provides a mathematically rigorous yet flexible alternative to probability for uncertainty modeling. Grounded in fuzzy sets and lattice theory, it is particularly suited to incomplete or ordinal knowledge. Its integration into reinforcement learning has the potential to enhance both performance and interpretability, especially in settings where probabilistic estimates are hard to justify.
+
+\end{document}

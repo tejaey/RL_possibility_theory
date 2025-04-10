@@ -1,0 +1,246 @@
+
+\documentclass[12pt]{article}
+\usepackage{amsmath, amssymb}
+
+\begin{document}
+
+\begin{center}
+    \textbf{\large Solutions for MH4514 Assignment 2}
+\end{center}
+\bigskip
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Question 1}
+
+We are given two geometric Brownian motions (GBMs) driven by the same Brownian motion \(W_t\):
+\begin{align*}
+    dX_t &= (r+ab)X_t\,dt + bX_t\,dW_t,\\[1mm]
+    dY_t &= \left(r+a^2\right)Y_t\,dt + aY_t\,dW_t,
+\end{align*}
+and we define
+\[
+V_t = \frac{X_t}{Y_t}.
+\]
+
+\subsection*{(a) Derivation of \(dV_t\)}
+
+We wish to derive the dynamics of \(V_t\) by applying It\^o's formula to the function
+\[
+f(x,y) = \frac{x}{y}.
+\]
+The first and second partial derivatives are:
+\[
+f_x = \frac{1}{y},\quad f_y = -\frac{x}{y^2},\quad f_{xx} = 0,\quad f_{xy} = -\frac{1}{y^2},\quad f_{yy} = \frac{2x}{y^3}.
+\]
+Thus, by It\^o's formula,
+\[
+dV_t = f_x\,dX_t + f_y\,dY_t + \frac{1}{2}\Bigl(2f_{xy}\,d\langle X,Y\rangle_t + f_{yy}\,d\langle Y\rangle_t\Bigr).
+\]
+
+Since \(X_t\) and \(Y_t\) share the same \(W_t\), their quadratic variations are
+\[
+d\langle X,Y\rangle_t = ab\,X_tY_t\,dt,\quad d\langle Y\rangle_t = a^2\,Y_t^2\,dt.
+\]
+
+Substitute the dynamics:
+\begin{align*}
+dV_t &= \frac{1}{Y_t}\Bigl[(r+ab)X_t\,dt + bX_t\,dW_t\Bigr] - \frac{X_t}{Y_t^2}\Bigl[(r+a^2)Y_t\,dt + aY_t\,dW_t\Bigr] \\[1mm]
+&\quad + \frac{1}{2}\left[ 2\left(-\frac{1}{Y_t^2}\right)(ab\,X_tY_t\,dt) + \frac{2X_t}{Y_t^3}(a^2\,Y_t^2\,dt)\right].
+\end{align*}
+
+Simplify each term:
+\begin{enumerate}[label=\textbf{Step \arabic*:}, wide]
+    \item \emph{First term:}
+    \[
+    \frac{1}{Y_t}\left[(r+ab)X_t\,dt + bX_t\,dW_t\right] = V_t\,(r+ab)\,dt + V_t\,b\,dW_t.
+    \]
+    \item \emph{Second term:}
+    \[
+    \frac{X_t}{Y_t^2}\left[(r+a^2)Y_t\,dt + aY_t\,dW_t\right] = V_t\,(r+a^2)\,dt + V_t\,a\,dW_t.
+    \]
+    \item \emph{Third term (second order correction):}
+    \[
+    \frac{1}{2}\left[-\frac{2ab\,X_t}{Y_t}\,dt + \frac{2a^2\,X_t}{Y_t}\,dt\right]
+    = V_t\,(a^2-ab)\,dt.
+    \]
+\end{enumerate}
+
+Collecting the \(dt\) and \(dW_t\) terms:
+\[
+dV_t = V_t\Bigl[(r+ab) - (r+a^2) + (a^2-ab)\Bigr]\,dt + V_t\,(b-a)\,dW_t.
+\]
+Notice that the drift term simplifies:
+\[
+(r+ab) - (r+a^2) + (a^2-ab) = 0.
+\]
+Thus, we obtain
+\[
+\boxed{dV_t = V_t\,(b-a)\,dW_t.}
+\]
+
+\subsection*{(b) Derivation of \(d(\ln V_t)\)}
+
+Since \(V_t\) satisfies
+\[
+\frac{dV_t}{V_t} = (b-a)\,dW_t,
+\]
+we can apply It\^o’s formula to the function \(g(V_t)=\ln V_t\). Recall that for an SDE
+\[
+\frac{dV_t}{V_t} = \mu_t\,dt + \sigma_t\,dW_t,
+\]
+the differential of \(\ln V_t\) is given by
+\[
+d(\ln V_t) = \left(\mu_t - \tfrac{1}{2}\sigma_t^2\right)dt + \sigma_t\,dW_t.
+\]
+In our case, \(\mu_t=0\) and \(\sigma_t=b-a\). Hence,
+\[
+\boxed{d(\ln V_t) = (b-a)\,dW_t - \frac{1}{2}(b-a)^2\,dt.}
+\]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Question 2}
+
+Assume the Black--Scholes framework for a European call option price function \(c(K,t)\). In the standard Black--Scholes setting the call price is given by
+\[
+c = S\,N(d_1) - K\,e^{-r(T-t)}N(d_2),
+\]
+with
+\[
+d_1 = \frac{\ln\frac{S}{K}+(r+\tfrac{\sigma^2}{2})(T-t)}{\sigma\sqrt{T-t}},\quad d_2 = d_1-\sigma\sqrt{T-t}.
+\]
+
+\subsection*{(a) Compute \(\frac{\partial d_1}{\partial K}\) and \(\frac{\partial d_2}{\partial K}\)}
+
+Since
+\[
+d_1 = \frac{\ln\left(\frac{S}{K}\right)+(r+\frac{\sigma^2}{2})(T-t)}{\sigma\sqrt{T-t}},
+\]
+the only dependence on \(K\) is in \(\ln(S/K)=-\ln K+\ln S\). Differentiating with respect to \(K\) we have:
+\[
+\frac{\partial d_1}{\partial K} = \frac{-\frac{1}{K}}{\sigma\sqrt{T-t}} = -\frac{1}{K\,\sigma\sqrt{T-t}}.
+\]
+Since \(d_2 = d_1-\sigma\sqrt{T-t}\) and the second term is independent of \(K\), it follows that
+\[
+\boxed{\frac{\partial d_2}{\partial K} = -\frac{1}{K\,\sigma\sqrt{T-t}}.}
+\]
+
+\subsection*{(b) Show the following relationships}
+
+The first derivative of the call price with respect to strike is known to be
+\[
+\frac{\partial c}{\partial K} = -e^{-r(T-t)}N(d_2).
+\]
+A second differentiation yields
+\[
+\frac{\partial^2 c}{\partial K^2} = \frac{e^{-r(T-t)}N'(d_2)}{\sigma K\sqrt{T-t}},
+\]
+where \(N(\cdot)\) is the cumulative distribution function (CDF) of the standard normal and \(N'(\cdot)\) its probability density function. (A complete derivation uses the chain rule and the result from part (a).)
+
+Thus, we have
+\[
+\boxed{\frac{\partial c}{\partial K} = -e^{-r(T-t)}N(d_2)}
+\]
+and
+\[
+\boxed{\frac{\partial^2 c}{\partial K^2} = \frac{e^{-r(T-t)}N'(d_2)}{\sigma K\sqrt{T-t}}.}
+\]
+
+\subsection*{(c) Verification of the PDE}
+
+We need to show that the call price \(c(K,t)\) satisfies
+\[
+\frac{\partial c}{\partial t} + \frac{1}{2}\sigma^2K^2\frac{\partial^2 c}{\partial K^2} - rK\frac{\partial c}{\partial K} = 0.
+\]
+One way to show this is to differentiate the Black--Scholes formula with respect to \(t\) and \(K\) and substitute the results along with the identities (which include the well-known relationship
+\[
+SN'(d_1) = Ke^{-r(T-t)}N'(d_2)
+\]
+and the expression
+\[
+\frac{\partial c}{\partial t} = -rKe^{-r(T-t)}N(d_2) - \frac{SN'(d_1)\sigma}{2\sqrt{T-t}}
+\]
+obtained in Tutorial 7, Question 4). After substitution and cancellation, one indeed recovers
+\[
+\frac{\partial c}{\partial t} + \frac{1}{2}\sigma^2K^2\frac{\partial^2 c}{\partial K^2} - rK\frac{\partial c}{\partial K} = 0.
+\]
+Thus, the call price function \(c(K,t)\) satisfies the PDE:
+\[
+\boxed{\frac{\partial c}{\partial t} + \frac{1}{2}\sigma^2K^2\frac{\partial^2 c}{\partial K^2} - rK\frac{\partial c}{\partial K} = 0.}
+\]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Question 3 (Chooser Option)}
+
+Let \(c(t,S_t,K,T)\) and \(p(t,S_t,K,T)\) denote the prices at time \(t\) of a European call and put, respectively, with strike \(K\) and maturity \(T\). We consider a chooser option that at time \(T\) gives the holder the right to receive the higher of a call or a put, where both options have strike \(K\) and \emph{further} maturity \(U > T\).
+
+\subsection*{(a) Payoff at Maturity}
+
+At time \(T\), by put-call parity for options with maturity \(U\), we have
+\[
+c(T,S_T,K,U) - p(T,S_T,K,U) = S_T - Ke^{-r(U-T)}.
+\]
+Thus, the value of the call can be written as
+\[
+c(T,S_T,K,U) = p(T,S_T,K,U) + \left[S_T - Ke^{-r(U-T)}\right].
+\]
+Since the chooser option pays the maximum of the call and put values, its payoff can be expressed as
+\[
+V_T = \max\{ c(T,S_T,K,U),\, p(T,S_T,K,U) \}.
+\]
+It is then easy to see that
+\[
+V_T = p(T,S_T,K,U) + \max\{0,\, S_T - Ke^{-r(U-T)}\}.
+\]
+Thus, we obtain
+\[
+\boxed{V_T = p(T,S_T,K,U) + \max\left\{0,\, S_T - Ke^{-r(U-T)}\right\}.}
+\]
+
+\subsection*{(b) Pricing the Chooser Option at Time \(t \in [0,T]\)}
+
+Since at \(T\) the chooser option payoff is
+\[
+V_T = p(T,S_T,K,U) + \max\{0, S_T - Ke^{-r(U-T)}\},
+\]
+observe that the term \(\max\{0, S_T - Ke^{-r(U-T)}\}\) is the payoff of a European call option with strike \(Ke^{-r(U-T)}\) and maturity \(T\). Hence, by risk-neutral valuation the price at time \(t\) is given by
+\[
+\boxed{V_t = p(t,S_t,K,U) + c\Bigl(t,S_t,Ke^{-r(U-T)},T\Bigr).}
+\]
+
+\subsection*{(c) Replicating Portfolio Delta}
+
+Assume a replicating portfolio of the chooser option is given by
+\[
+\Pi_t = \delta_t S_t + \phi_t M_t,
+\]
+with \(M_t = e^{rt}\) the money market account. Since from part (b)
+\[
+V_t = p(t,S_t,K,U) + c\Bigl(t,S_t,Ke^{-r(U-T)},T\Bigr),
+\]
+its delta with respect to the underlying \(S_t\) is
+\[
+\delta_t = \frac{\partial V_t}{\partial S_t} = \frac{\partial p(t,S_t,K,U)}{\partial S_t} + \frac{\partial c\Bigl(t,S_t,Ke^{-r(U-T)},T\Bigr)}{\partial S_t}.
+\]
+In the Black--Scholes framework the deltas are known:
+\begin{itemize}[leftmargin=1cm]
+    \item For the European call with parameters \((K\,e^{-r(U-T)},T)\), the delta is \(N(d_1^*)\), where
+    \[
+    d_1^* = \frac{\ln\frac{S_t}{Ke^{-r(U-T)}}+\left(r+\frac{\sigma^2}{2}\right)(T-t)}{\sigma\sqrt{T-t}}.
+    \]
+    \item For the European put with parameters \((K,U)\), the delta is (by put--call parity) \(N(d_1) - 1\), where
+    \[
+    d_1 = \frac{\ln\frac{S_t}{K}+\left(r+\frac{\sigma^2}{2}\right)(U-t)}{\sigma\sqrt{U-t}}.
+    \]
+\end{itemize}
+Thus,
+\[
+\boxed{\delta_t = \left[N(d_1) - 1\right] + N(d_1^*) = N(d_1) + N(d_1^*) - 1.}
+\]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{center}
+    \textbf{\large End of Solutions}
+\end{center}
+
+\end{document}
+

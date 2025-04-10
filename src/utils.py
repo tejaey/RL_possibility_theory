@@ -1,4 +1,5 @@
 import gymnasium as gym
+from matplotlib import animation
 import torch, random
 from torch import optim
 import numpy as np
@@ -10,6 +11,7 @@ import matplotlib.pyplot as plt
 import math
 import itertools
 from datetime import datetime
+import readchar
 
 
 class ReplayBuffer:
