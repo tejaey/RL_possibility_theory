@@ -558,12 +558,70 @@ Minimizing this loss updates the network parameters so that the predicted possib
 
 \chapter{Possibilistic Q Ensembles}
 
-Epistemic uncertainty can be modelled by having a possibility distribution over of Q-Value functions; practically, this can be achieved by training an ensemble of Q-Networks, where each network represents some hypothesis of possible Q functions. This can be interpreted as taking samples from a posterior distribution of possible Q-values, providing a approximation of the agents uncertainty over the state action value. In particular, the different networks should disagree over under explored $(s,a)$ pairs, indicating uncertainty about that environment - conversely if the networks generally agree then the region is likely well explored. There are 3 different ways we can explore this:
+Epistemic uncertainty can be modelled by having a possibility distribution over of Q-Value functions; practically, this can be achieved by training an ensemble of Q-Networks, where each network represents some hypothesis of possible Q functions. This can be interpreted as taking samples from a posterior distribution of possible Q-values, providing a approximation of the agents uncertainty over the state action value. In particular, the different networks should disagree over under explored $(s,a)$ pairs, indicating uncertainty about that environment - conversely if the networks generally agree then the region is likely well explored. Ensembles have been shown to be peform better than a single network as they can often provide better estimates for Q-Values and cab lead to more stable learning \myworries{cite}. There are 3 different ways we can explore this:
 \begin{itemize}
   \item \textbf{Possibility Distribution:} A possibility distribution $p_i$ can be maintained for each network $q_i \in \mathbb{QN}$ where $\mathbb{QN}$  is the set of Q-Networks. $p_i$ quantifies the models belief in $Q_i$ given the evidence so far. Initially, each network can be assigned a possibility of 1 to represent an uniformed state. As learning progresses we can adjust the possibility of each network with their respective likelihoods.  
   \item \textbf{Mean-Var} \myworries{Mean Variance networks themselves provide a representation of uncertainity for each network in the ensemble. Where a high $\mu_i(s,a)$ represents a lower possibility/ certainity in that network. This can allow us to train the network on independent data and still get valid uncertainty/ belief values over the networks that are $s,a$ specific and not global. We still need to explore this.} 
   \item \textbf{Just the Ensemble:} \myworries{The ensemble, by disagreement or agreement over q-values represent certainty or uncertainty. still need to explore this?}
 \end{itemize}
+
+\section{Possibility Distribution}
+\subsection{Bellman Update}
+There are several choices of Bellman update that can be employed to train an ensemble of Q-Networks. Here, we will explore two different methods: Independent Update and Conservative Ensemble Updates. The choice between the two trades of stability and exploration. \par
+% TODO: does it actually? 
+%
+For all networks a common minibatch $mathbb{B}$ can be sampled from the set of experienced transitions $mathbb{D}$. Sampling from the same minibatch would mean that the loss calculated for the networks can still be compared (This is crucial as the loss is used to do bayesian updates to the possibility of each network.).
+
+\subsubsection{Independent Update}
+Each Q-Network can be update independently using Q-value estimaes and action choice.  Using the same minibatch for each network, the target$y_i$ can be calculated as 
+\[
+  y_i = r = \gamma \max{a' \in \mathbb{A}}Q_i(s', a')
+\]\par
+Seperate targets means that we are not forcing the networks to agree on the Q-Values prementurally ensuring the netowkrs remain diverse. Even though the epxloration strategy and experience is shared, by not sharing the target information we ensure independence between the networks estimates - i.e each network is its own valid Q-Learning process. This does introduce a risk of overestimation which is common in Q-Learning. \par
+
+\subsubsection{Conservative Ensemble Update}
+In this method, all the Q networks will share a common target to train that takes the maximum of the most pessemibstic estimate of the state-action values of the ensemble. The target can be calculated as \[
+  y_{min} = r + \gamma max{a' \in \mathbb{A}}\big(\min{j \in 1, \dots, N}Q_j(s', a')\big)
+\]
+\par 
+The maxmin has been shown to reduce overestimation approach inherent with Q-Learning and is a popular strategy when dealing with Enseble Q-Netowrks \cite{lan2021maxminq} and is also common motivation behind Double DQN. In particular this method introduces a downward bias as 
+\[
+  y_{min} \le r + \gamma Q_i(s', a')
+\]
+With larger $N$ this could lead to an underesimation bias. Using a min however means that all Q networks are being pushed towards a single estimate of $Q(s,a)$ which can hamper diversity and disagreement, esipically in less underexplored states. 
+
+\subsection{Bayesian Possibility Update}
+\subsubsection{Loss based Likelyhood}
+Using either of the updates, the loss $L_i$ can be calculated as the mean squared error between the the target $y_i$ and the estimate $Q_i(s,a)$. The loss provides a likelyhood estimate \[\mathbb{L}_i = e^{L_i}.\]
+\subsubsection{GradNorm based}
+The $G_i = |\nabla_{\theta_i}L_i| $ gradient norm with respect to the training data can indicate how "surpsring" the data is for the model $i$. In particular, recent work \cite{Lee2020} shows the efficacy of gradient norms as a messure of uncertainity of a network. In particular, if a new observed transition results in a large change in the models paraments $\theta_i$ then that could suggest that the models prior knowledge of the state-action space was inadequate. We can inforporate the Gradnorm by adding a normlised value to the loss:
+\[
+  \mathbb{L}'_i = L_i + \beta \frac{G_i}{\max{j \in 1, \dots, N} G_j}
+\]
+where the parameter $\beta$ can be used to control the impact of grad-norm. \myworries{We will provide comparisons over the different $\beta$ values.}
+\subsubsection{Update}
+\par
+Let $L_i$ be the loss of network $Q_i$ during a training update for the mini-batch $ \mathbb{B}$. 
+For each $Q_i$ can be calculated the new possibility $p_i$ can be estimated by 
+\[
+  p_i = \frac{p_i \mathbb{L}_i}{\sup{j \in 1, \dots, N}\{p_j \mathbb{L}_j\}}
+\]
+However, update the possiblity full using this results in instability as the $p_i$ can change drastically over updates. To ensure stability we perform possibilisitc expoential moving average with. 
+\[
+  p_i = max \{\alpha p_i', \frac{p_i \mathbb{L}_i}{\sup{j \in 1, \dots, N}\{p_j \mathbb{L}_j\}} \}. 
+\]
+This would ensure that the possibilty does not drastically change to less because of the current minibatch. The above method also ensures that  atleast one $p_i$ has possibility $1$. \par
+
+\subsection{Action Selection}
+
+Given an enseble with pssibilty weights, we consider two different methods of action selection. 
+
+\subsubsection{Possibilistic Averaging}
+In this scheme, we compute a \[Q_{ens} = \sum_{i}^N p_i Q_i(s,a)\] and select the next action as \[a = \underset{argmax}{a} Q_{ens}(s, a). \] The value $p_i$ represnts vote weight for enseble $Q_i$.  Averaging ensemble predictions is a common technique in RL to to improve $Q$ value estimates. Note that the actions elected is the same as it would be if the possibility values were normalised to sum to 1. In general, we can consider this choice a sample from the set of defuzzied  ensemble Q valies (\myworries{related to centroids maybe}) 
+\[Q_{ens}^\alpha =   \frac{\sum_i p_i^\alpha Q_i(s,a)}{\sum_i p_i^\alpha}\] where the parameter $\alpha$ can be used to increase or decrease "sharpness" with repspect toe the possibilities. This method can be senstive to the models indivudal Q values, if one model has a really high $Q$ values then that can skew the action selection. 
+
+\subsubsection{Majority Voting}
+Majority Voting is also a common technique in ensemble model approaches. This model votes for an action, determined by the argmax with respect to its $Q_i(s,a)$, and the vlaue of each vote is weighted by $p_i$. This method is resilient against outliers in the Q estimes of the model as each vote is clipped at $p_i$ and does not take into account the estimate of $Q(s,a)$ of the model directly. Majority voting in general has be shown to result in more robust policies \cite{Hans2010}, this is partially because overesimtion of any one model. 
 
 \chapter{Proposed Approaches}
 
