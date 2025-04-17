@@ -462,7 +462,7 @@ class actor_critic_loss_maxmax:
                 # If the mean is provided by another network m, use: error = next_states - m.
                 error = (
                     next_states - next_states
-                )  # = 0; if you are not modeling a residual, you may need an alternative target.
+                )  # are not modeling a residual, you may need an alternative target.
                 # In many cases, you’d have a learned mean and then train the std on the residual.
                 gaussian_loss = gaussian_std_nll_loss(predicted_log_std, error)
                 self.std_optimizer.zero_grad()

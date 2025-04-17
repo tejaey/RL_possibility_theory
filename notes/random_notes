@@ -1,0 +1,584 @@
+Action Selection under Ensemble Uncertainty
+Given an ensemble of Q-functions and their possibility weights, we consider two mechanisms for choosing the action in state $s$:
+(a) using a weighted average Q-value, and
+(b) a majority vote among the ensemble’s preferred actions.
+
+These correspond to different decision-theoretic principles under uncertainty. We provide formal definitions and rationale for each.
+
+Weighted Average Q-Value Selection
+In this scheme, we compute a possibility-weighted aggregate of the Q-values for each action and then select the action with highest aggregate. If $\pi_i$ is the (normalized) weight of model $i$, we define the ensemble Q-value for action $a$ as a weighted average:
+
+𝑄 ens ( 𝑠 , 𝑎) = ∑ 𝑖 = 1 𝑁 𝑤 𝑖   𝑄 𝑖 ( 𝑠 , 𝑎) , Q ens ​ (s,a)= i=1 ∑ N ​ w i ​ Q i ​ (s,a),
+where ${w_i}$ are weights derived from ${\pi_i}$. If the $\pi_i$ are treated as probabilities (summing to 1), one natural choice is $w_i=\pi_i$. If using purely possibilistic weights (max-normalized), one can either normalize them to sum to 1 (to interpret as a rough probability) or use them in a weighted vote sense (discussed below).
+
+Assuming $w_i$ sums to 1, $Q_{\text{ens}}(s,a)$ is essentially the expected Q-value for action $a$ under the ensemble’s belief distribution. The action selection is then:
+
+𝑎 ∗ ( 𝑠) = arg ⁡ max ⁡ 𝑎 ∈ 𝐴 𝑄 ens ( 𝑠 , 𝑎) . a ∗ (s)=arg a∈A max ​ Q ens ​ (s,a).
+Theoretical Motivation:
+If the ensemble weights represented a true posterior probability $P(\theta_i \mid \mathcal{D})$ over models, then $Q_{\text{ens}}(s,a)$ would be the Bayes-optimal estimate of the Q-value (the posterior mean of $Q(s,a)$). Choosing the action that maximizes this expected value is a risk-neutral decision: it maximizes the agent’s expected return on average over model uncertainty. This is analogous to choosing an action by integrating over a distribution of models (also related to Thompson sampling expectations).
+
+In fully Bayesian RL, the optimal policy w.r.t. the posterior is indeed to maximize the expected Q (this yields the highest expected utility). Thus, weighted averaging aligns with the principle of Bayesian model averaging in decision-making.
+
+In practice, weighted ensemble policies have been found effective in many ensemble learning contexts. For example, Condorcet’s jury theorem and related results show that aggregating estimators (via averaging or voting) tends to improve accuracy if individual models are even slightly better than random. In RL specifically, averaging ensemble predictions has been used to stabilize value estimates.
+
+However, one must be cautious: if one model severely overestimates $Q(s,a)$ in an unseen state (due to epistemic uncertainty), a probability-weighted average will inflate $Q_{\text{ens}}(s,a)$ in proportion to that model’s weight. If the weight $\pi_i$ is not too low, the ensemble could optimistically select an action that only a minority of models favor, simply because that one model’s Q-value is extreme.
+
+This can sometimes be desirable for exploration (picking potentially high-reward actions that most models are unsure about), but it can also lead to instability if outlier predictions are wrong.
+
+Majority Vote on Preferred Actions
+An alternative is to base the decision on each model’s argmax action. Let
+
+𝑎 𝑖 ∗ = arg ⁡ max ⁡ 𝑎 𝑄 𝑖 ( 𝑠 , 𝑎) a i ∗ ​ =arg a max ​ Q i ​ (s,a)
+be the best action according to model $i$. In a majority vote scheme, the agent considers the set
+{ 𝑎 1 ∗ , 𝑎 2 ∗ , … , 𝑎 𝑁 ∗ } {a 1 ∗ ​ ,a 2 ∗ ​ ,…,a N ∗ ​ }
+and selects the action that appears most frequently. In other words, $a^*(s)$ is the action chosen by the majority of ensemble members (with ties broken by secondary criteria, e.g. using weights or randomly). This can be extended to weighted voting by giving each model $i$ a vote proportional to $\pi_i$, but the core idea is a hard decision based on counting preferences rather than averaging values. If the ensemble size $N$ is large, majority vote corresponds to taking the mode of the models’ argmax choices.
+
+Theoretical Motivation:
+Majority voting is a form of robust decision rule under uncertainty. Instead of relying on possibly skewed Q magnitudes, it trusts the consensus of the ensemble. This can protect against cases where one model (or a small subset of models) has wildly erroneous estimates. Notably, even if one model predicts an extremely high $Q$ for some action, that action will not be chosen unless at least half of the models agree it is the best. This mitigates the effect of outliers.
+
+In fact, experimental evidence suggests that in ensemble RL, a majority vote policy can outperform naive Q-value averaging. Hans & Udluft (2010) combined multiple neural Q-functions and found that “majority voting is superior to Q-averaging” in producing robust policies. The intuition is that majority voting “smooths out” errors differently: an overestimation by one network is essentially clipped by the dissenting votes of others, leading to more conservative action selection.
+
+One can draw parallels to classification ensembles: averaging corresponds to taking mean predicted probabilities (soft voting), whereas majority vote is hard voting. In classification theory, if each model has accuracy above 50%, majority vote improves overall accuracy (Condorcet’s theorem). In Q-learning, the analogy is looser, but if each network’s policy has a decent chance of being correct, the majority vote will often select a reliable action.
+
+It effectively uses the wisdom of the crowd: an action that many models independently find good is likely truly good, whereas an action hailed only by a lone model but not by others is suspicious. This is particularly relevant under epistemic uncertainty: if an action has never been tried, some models might randomly think it’s great (due to random initialization or lack of data), but most models will be more cautious. Majority vote would lean towards the cautious view until more evidence accumulates, thereby avoiding leaps of faith based on one optimistic guess.
+
+Weighted vote variant:
+If models have unequal weights $\pi_i$, a refined approach is to give each model a vote weight equal to $\pi_i$ and then select the action with the highest total weight. This reduces to simple majority when weights are equal. If possibility weights are used (max-normalized), the top model has weight 1 and others less, which can make the voting tantamount to following the current best model unless others collectively outweigh it. Care must be taken in design to ensure this doesn’t just collapse to the single-model policy.
+
+Summary:
+The two action selection mechanisms offer a trade-off. Weighted average Q selection is grounded in maximizing expected return and will take calculated risks when a subset of models predict a high payoff. Majority vote selection leans towards risk-aversion with respect to model uncertainty, requiring broad agreement before committing to an action.
+
+In our project, we consider both mechanisms: the former aligns with Bayesian optimality if the weights are trusted probabilities, and the latter aligns with a robust control philosophy, potentially safer in face of epistemic uncertainty. Empirical evaluation would reveal which yields better learning and exploration in environments with sparse data.
+
+
+
+Mean–Var Networks for Uncertainty Quantification
+In many reinforcement learning applications, it is useful not only to estimate a mean value (e.g., the Q-value) but also to quantify the uncertainty associated with that estimate. A mean–variance network extends the traditional Q-network by simultaneously predicting both the mean 
+𝜇 ( 𝑠 , 𝑎) μ(s,a) and the variance 𝜎 2 ( 𝑠 , 𝑎) σ 2 (s,a) of the Q-values for each state–action pair ( 𝑠 , 𝑎) (s,a). Here, the variance serves as an indicator of uncertainty (and conversely, lower variance suggests higher confidence).
+
+1. Concept and Motivation
+A mean–var network can be seen as an instance of distributional reinforcement learning. However, the focus here is on using the variance as a proxy for epistemic uncertainty:
+
+Mean Prediction 
+𝜇 ( 𝑠 , 𝑎)
+μ(s,a): The estimated expected Q-value for taking action 
+𝑎 a in state 𝑠 s.
+
+Variance Prediction 
+𝜎 2 ( 𝑠 , 𝑎) σ 2
+ (s,a): A measure of the network's uncertainty about its Q-value estimate.
+
+In our ensemble context, each network 
+𝑄 𝑖 Q i ​ could be replaced by (or augmented with) a mean–var network that outputs 
+𝜇 𝑖 ( 𝑠 , 𝑎) μ i
+​
+ (s,a) and 
+𝜎 𝑖 2 ( 𝑠 , 𝑎) σ i 2
+​
+ (s,a). The variance provides extra information: if a network is very uncertain (i.e. 
+𝜎 𝑖 2 ( 𝑠 , 𝑎) σ i 2
+​
+ (s,a) is high), then—even if its mean is high—it should receive a lower “possibility” or weight when combining estimates.
+
+The idea is to use the variance as an inverse proxy for certainty. For instance, one might define the possibility weight for network 
+𝑖 i at ( 𝑠 , 𝑎)
+(s,a) as:
+𝑝 𝑖 ( 𝑠 , 𝑎) = exp ⁡ ( − 𝜆   𝜎 𝑖 2 ( 𝑠 , 𝑎)) , p i ​ (s,a)=exp(−λσ i 2 ​ (s,a)),
+where 
+𝜆 > 0
+λ>0 is a tuning parameter. In this formulation, networks with lower variance (more confident predictions) receive higher possibility weights, while those with high uncertainty are downweighted. The exponential function ensures that possibility remains in the interval 
+( 0 , 1 ]
+(0,1] and that the best (i.e., lowest variance) network achieves a possibility near 1.
+
+2. Implementation Considerations
+To integrate a mean–var network into the ensemble, you would make the following modifications to your current framework:
+
+Network Architecture:
+Modify the Q-network architecture so that its final layer outputs two quantities for each action: the mean 
+𝜇 𝑖 ( 𝑠 , 𝑎) μ i
+​
+ (s,a) and the variance 
+𝜎 𝑖 2 ( 𝑠 , 𝑎) σ i 2 ​
+ (s,a). The variance output should be constrained to be non-negative (e.g., by learning the log-variance and then exponentiating, or by applying a softplus activation function).
+
+Loss Function:
+The loss function for each network will consist of two terms:
+
+A mean squared error (MSE) term comparing the predicted mean 
+𝜇 𝑖 ( 𝑠 , 𝑎) μ i ​
+ (s,a) to the target 
+𝑦 𝑖 y i ​
+  (as computed by your Bellman update).
+
+A term that encourages proper calibration of the variance. One common approach is to use the negative log-likelihood (NLL) for a Gaussian distribution. Assuming a Gaussian model for the Q-value estimate:
+
+𝑄 𝑖 ( 𝑠 , 𝑎)
+∼
+𝑁 ( 𝜇 𝑖 ( 𝑠 , 𝑎) , 𝜎 𝑖 2 ( 𝑠 , 𝑎)) , Q i
+​
+ (s,a)∼N(μ i ​
+ (s,a),σ i 2 ​
+ (s,a)),
+the negative log-likelihood is given by
+
+NLL 𝑖 ( 𝑠 , 𝑎) = ( 𝑦 𝑖 − 𝜇 𝑖 ( 𝑠 , 𝑎)) 2 2 𝜎 𝑖 2 ( 𝑠 , 𝑎) + 1 2
+log
+⁡
+𝜎 𝑖 2 ( 𝑠 , 𝑎) +
+constant
+.
+NLL 
+i
+​
+ (s,a)= 2σ i 2
+​
+ (s,a) (y i ​ −μ i ​ (s,a)) 2 ​ + 2 1 ​ logσ i 2 ​ (s,a)+constant.
+Minimizing this loss encourages the network not only to fit the mean correctly but also to predict a variance that reflects the true uncertainty.
+
+Possibility Weight Update:
+Use the variance to update the possibility weights. For each network 
+𝑖
+i, compute the possibility 
+𝑝 𝑖 ( 𝑠 , 𝑎) p i ​
+ (s,a) as:
+
+𝑝 𝑖 ( 𝑠 , 𝑎) = exp ⁡ ( − 𝜆   𝜎 𝑖 2 ( 𝑠 , 𝑎)) . p i ​
+ (s,a)=exp(−λσ i 2 ​ (s,a)).
+You could combine this with other uncertainty measures (e.g., loss-based likelihoods) multiplicatively or by incorporating it into a combined update:
+
+𝑝 𝑖 ( 𝑠 , 𝑎) = 𝑝 𝑖   𝑒 − 𝜆   𝜎 𝑖 2 ( 𝑠 , 𝑎) sup ⁡ 𝑗 { 𝑝 𝑗   𝑒 − 𝜆   𝜎 𝑗 2 ( 𝑠 , 𝑎) } , p i ​ (s,a)= sup j ​ {p j ​ e −λσ j 2 ​ (s,a) } p i ​ e −λσ i 2 ​ (s,a)
+ 
+​
+ ,
+where the normalization is performed over the ensemble to ensure that at least one network retains a possibility of 1.
+
+Ensemble Aggregation for Action Selection:
+Once you have possibility weights that incorporate variance, the aggregated Q-value for action 
+𝑎
+a is:
+
+𝑄
+ens ( 𝑠 , 𝑎) = ∑ 𝑖 = 1 𝑁 𝑝 𝑖 𝛼 ( 𝑠 , 𝑎)   𝜇 𝑖 ( 𝑠 , 𝑎) ∑ 𝑖 = 1 𝑁 𝑝 𝑖 𝛼 ( 𝑠 , 𝑎) . Q ens ​
+ (s,a)= ∑ i=1 N ​
+ p i α ​ (s,a) ∑ i=1 N ​ p i α ​ (s,a)μ i ​ (s,a) ​
+ .
+Here, 
+𝛼
+α is the same sharpness parameter discussed before. By using the mean predictions 
+𝜇 𝑖 ( 𝑠 , 𝑎) μ i ​ (s,a) (instead of the raw 𝑄 𝑖
+Q 
+i
+​
+  values) and incorporating the variance in the possibility weights, the ensemble action selection becomes more robust to individual network uncertainty.
+
+3. Theoretical Rationale
+The idea behind using a mean–var network in this context is twofold:
+
+Uncertainty-Aware Averaging:
+Instead of solely relying on the mean Q-value, the network also reports its confidence. A network that is highly uncertain (large variance) is less trusted in the aggregation process. This is analogous to Bayesian model averaging where models with high posterior uncertainty have less influence on the final predictive mean.
+
+Exploration vs. Exploitation Trade-off:
+When several ensemble members disagree (which is often the case in poorly explored states), the variances will tend to be higher, leading to lower possibility weights. This can trigger the agent to explore rather than exploit. As more data is gathered, variances may reduce, thereby increasing the possibility weights for the better-performing networks. This dynamic, built into the architecture, helps balance exploration and exploitation.
+
+4. Practical Example
+Suppose we have an ensemble of 3 mean–var networks. For a given state–action pair 
+( 𝑠 , 𝑎)
+(s,a), assume their outputs are:
+
+𝜇 1 ( 𝑠 , 𝑎) = 5.0 , 𝜎 1 2 ( 𝑠 , 𝑎) = 1.0 , 𝜇 2 ( 𝑠 , 𝑎) = 4.8 , 𝜎 2 2 ( 𝑠 , 𝑎) = 2.0 , 𝜇 3 ( 𝑠 , 𝑎) = 5.2 , 𝜎 3 2 ( 𝑠 ,
+𝑎
+)
+=
+0.5.
+μ 
+1
+​
+ (s,a)
+μ 
+2
+​
+ (s,a)
+μ 
+3
+​
+ (s,a)
+​
+  
+=5.0,σ 
+1
+2
+​
+ (s,a)=1.0,
+=4.8,σ 
+2
+2
+​
+ (s,a)=2.0,
+=5.2,σ 
+3
+2
+​
+ (s,a)=0.5.
+​
+ 
+Setting 
+𝜆
+=
+1
+λ=1 and 
+𝛼
+=
+1
+α=1 for simplicity, the possibility weights would be computed as
+
+𝑝
+1
+(
+𝑠
+,
+𝑎
+)
+=
+exp
+⁡
+(
+−
+1
+⋅
+1.0
+)
+≈
+0.3679
+,
+𝑝
+2
+(
+𝑠
+,
+𝑎
+)
+=
+exp
+⁡
+(
+−
+1
+⋅
+2.0
+)
+≈
+0.1353
+,
+𝑝
+3
+(
+𝑠
+,
+𝑎
+)
+=
+exp
+⁡
+(
+−
+1
+⋅
+0.5
+)
+≈
+0.6065.
+p 
+1
+​
+ (s,a)
+p 
+2
+​
+ (s,a)
+p 
+3
+​
+ (s,a)
+​
+  
+=exp(−1⋅1.0)≈0.3679,
+=exp(−1⋅2.0)≈0.1353,
+=exp(−1⋅0.5)≈0.6065.
+​
+ 
+The normalized possibility weights (if desired) would be
+
+𝑝
+~
+𝑖
+(
+𝑠
+,
+𝑎
+)
+=
+𝑝
+𝑖
+(
+𝑠
+,
+𝑎
+)
+𝑝
+1
+(
+𝑠
+,
+𝑎
+)
++
+𝑝
+2
+(
+𝑠
+,
+𝑎
+)
++
+𝑝
+3
+(
+𝑠
+,
+𝑎
+)
+,
+p
+~
+​
+  
+i
+​
+ (s,a)= 
+p 
+1
+​
+ (s,a)+p 
+2
+​
+ (s,a)+p 
+3
+​
+ (s,a)
+p 
+i
+​
+ (s,a)
+​
+ ,
+with
+
+𝑝
+~
+1
+(
+𝑠
+,
+𝑎
+)
+≈
+0.3679
+1.1097
+≈
+0.3314
+,
+𝑝
+~
+2
+(
+𝑠
+,
+𝑎
+)
+≈
+0.1220
+,
+𝑝
+~
+3
+(
+𝑠
+,
+𝑎
+)
+≈
+0.5466.
+p
+~
+​
+  
+1
+​
+ (s,a)≈ 
+1.1097
+0.3679
+​
+ ≈0.3314, 
+p
+~
+​
+  
+2
+​
+ (s,a)≈0.1220, 
+p
+~
+​
+  
+3
+​
+ (s,a)≈0.5466.
+Then the possibilistic predictive mean Q-value is
+
+𝑄
+ens
+(
+𝑠
+,
+𝑎
+)
+≈
+0.3314
+×
+5.0
++
+0.1220
+×
+4.8
++
+0.5466
+×
+5.2
+≈
+1.657
++
+0.5856
++
+2.8433
+≈
+5.085.
+Q 
+ens
+​
+ (s,a)≈0.3314×5.0+0.1220×4.8+0.5466×5.2≈1.657+0.5856+2.8433≈5.085.
+This weighted average gives more influence to network 3 because it has both a high mean and a low variance.
+
+Summary
+By augmenting each Q-network to predict both a mean and a variance, we can use the variance as an inverse measure of certainty, forming possibility weights according to
+
+𝑝
+𝑖
+(
+𝑠
+,
+𝑎
+)
+=
+exp
+⁡
+(
+−
+𝜆
+ 
+𝜎
+𝑖
+2
+(
+𝑠
+,
+𝑎
+)
+)
+.
+p 
+i
+​
+ (s,a)=exp(−λσ 
+i
+2
+​
+ (s,a)).
+The ensemble’s aggregated Q-value is then computed as
+
+𝑄
+ens
+𝛼
+(
+𝑠
+,
+𝑎
+)
+=
+∑
+𝑖
+=
+1
+𝑁
+𝑝
+𝑖
+𝛼
+(
+𝑠
+,
+𝑎
+)
+ 
+𝜇
+𝑖
+(
+𝑠
+,
+𝑎
+)
+∑
+𝑖
+=
+1
+𝑁
+𝑝
+𝑖
+𝛼
+(
+𝑠
+,
+𝑎
+)
+,
+Q 
+ens
+α
+​
+ (s,a)= 
+∑ 
+i=1
+N
+​
+ p 
+i
+α
+​
+ (s,a)
+∑ 
+i=1
+N
+​
+ p 
+i
+α
+​
+ (s,a)μ 
+i
+​
+ (s,a)
+​
+ ,
+where 
+𝛼
+α adjusts the sharpness of the weighting.
+
+This approach integrates uncertainty directly into the ensemble framework, ensuring that networks which are less certain about their predictions contribute less to the final decision. The method harmonizes with the overall possibilistic Q-ensemble framework and provides a principled way to balance exploration and exploitation.

@@ -31,3 +31,13 @@
 ## Max Max Possibility
 
 ## Conclusion
+
+## TODO
+
+### 16 Apr
+
+Write an experiment for all the methods written about in the report.
+
+Construct some special demonstrative experiments.
+
+I need to complete and get the results by Thursday 6pm so that I can make a draft presentation to show to my professor.
