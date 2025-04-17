@@ -35,40 +35,40 @@ class td_loss_meta(ABC):
 
 class distributional_qn_loss(td_loss_meta):
     def __init__(self, method: Literal["Dkl", "Wasserstein"], GAMMA):
+        super().__init__()  # call parent first
         self.method = method
         self.GAMMA = GAMMA
-        super().__init__()
 
     def __call__(self, batch, online_qnet, target_qnet, optimizers) -> float:
         states_t, actions_t, rewards_t, next_states_t, dones_t = unpack_batch(batch)
+
         mean, logvar = online_qnet(states_t)
         mean_taken = mean.gather(1, actions_t)
         logvar_taken = logvar.gather(1, actions_t)
         var_taken = torch.exp(logvar_taken)
 
         with torch.no_grad():
-            next_mean, next_logvar = target_qnet(next_states_t.to(DEVICE))
-            next_mean_max = next_mean.max(dim=1, keepdim=True)[0]
-            td_target = rewards_t + self.GAMMA * next_mean_max * (1 - dones_t)
+            next_mean, _ = target_qnet(next_states_t)
+            next_max = next_mean.max(dim=1, keepdim=True)[0]
+            td_target = rewards_t + self.GAMMA * next_max * (1 - dones_t)
+
+        # 4) Compute loss by method
         match self.method:
             case "Dkl":
+                # DKL variant uses (μ - target)^2 + σ^2
                 diff = mean_taken - td_target
-
-                wasserstein_2_sq = diff.pow(2) + var_taken
-
-                loss = wasserstein_2_sq.mean()
+                loss = (diff.pow(2) + var_taken).mean()
             case "Wasserstein":
+                # Wasserstein variant uses KL-style term
                 diff_sq = (td_target - mean_taken).pow(2)
-
-                kl = 0.5 * (logvar_taken + np.log(2 * np.pi)) + diff_sq / (
+                kl_term = 0.5 * (logvar_taken + np.log(2 * np.pi)) + diff_sq / (
                     2 * var_taken
                 )
-
-                loss = kl.mean()
+                loss = kl_term.mean()
             case _:
-                raise Exception("Invalid Method")
-        optimizers.zero_grad()
+                raise ValueError(f"Unknown method {self.method!r}")
 
+        optimizers.zero_grad()
         loss.backward()
         optimizers.step()
         return loss.item()

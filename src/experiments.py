@@ -49,6 +49,7 @@ from config import DEVICE
 from training_loop import training_loop_qn, training_loop_ac
 
 
+## 1st experiment - needs to be run with LunarLander and the CartPole
 def mean_var_experiment(
     env, episodes, batch_size=256, hidden_dim=128, num_runs=1, GAMMA=0.99
 ) -> dict:
@@ -85,12 +86,14 @@ def mean_var_experiment(
         "gamma": GAMMA,
         "eps": 0.1,
         "tau_soft_update": 0.05,
+        "update_steps": 1,
     }
     for loss_function in loss_functions:
         for action_selection_method in action_selection_methods:
             name = f"{loss_function[1]}_{action_selection_method[1]}"
             results = []
             for exp_n in range(num_runs):
+                print(name)
                 online_network = MeanVarianceQNetwork(
                     state_dim=state_dim, action_dim=action_dim, hidden_dim=hidden_dim
                 ).to(DEVICE)
@@ -110,7 +113,7 @@ def mean_var_experiment(
                         select_action=action_selection_method[0],
                         replay_buffer=replay_buffer,
                         configs=configs,
-                        print_info=True,
+                        print_info=False,
                         discrete=True,
                     )
                     results.append(rewards)
