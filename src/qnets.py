@@ -3,6 +3,8 @@ from typing import Literal
 import numpy as np
 import torch.nn as nn
 
+from config import DEVICE
+
 
 class SimpleDQN(nn.Module):
     def __init__(self, state_dim, action_dim, hidden_dim=128):

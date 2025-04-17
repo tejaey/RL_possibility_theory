@@ -15,11 +15,11 @@ from config import DEVICE
 def unpack_batch(batch):
     states, actions, rewards, next_states, dones = batch
 
-    states_t = torch.FloatTensor(states)
-    actions_t = torch.LongTensor(actions).unsqueeze(-1)
-    rewards_t = torch.FloatTensor(rewards).unsqueeze(-1)
-    next_states_t = torch.FloatTensor(next_states)
-    dones_t = torch.FloatTensor(dones).unsqueeze(-1)
+    states_t = torch.FloatTensor(states).to(DEVICE)
+    actions_t = torch.LongTensor(actions).unsqueeze(-1).to(DEVICE)
+    rewards_t = torch.FloatTensor(rewards).unsqueeze(-1).to(DEVICE)
+    next_states_t = torch.FloatTensor(next_states).to(DEVICE)
+    dones_t = torch.FloatTensor(dones).unsqueeze(-1).to(DEVICE)
 
     return states_t, actions_t, rewards_t, next_states_t, dones_t
 
@@ -34,8 +34,9 @@ class td_loss_meta(ABC):
 
 
 class distributional_qn_loss(td_loss_meta):
-    def __init__(self, method: Literal["Dkl", "Wasserstein"]):
+    def __init__(self, method: Literal["Dkl", "Wasserstein"], GAMMA):
         self.method = method
+        self.GAMMA = GAMMA
         super().__init__()
 
     def __call__(self, batch, online_qnet, target_qnet, optimizers) -> float:
@@ -46,9 +47,9 @@ class distributional_qn_loss(td_loss_meta):
         var_taken = torch.exp(logvar_taken)
 
         with torch.no_grad():
-            next_mean, next_logvar = target_qnet(next_states_t)
+            next_mean, next_logvar = target_qnet(next_states_t.to(DEVICE))
             next_mean_max = next_mean.max(dim=1, keepdim=True)[0]
-            td_target = rewards_t + GAMMA * next_mean_max * (1 - dones_t)
+            td_target = rewards_t + self.GAMMA * next_mean_max * (1 - dones_t)
         match self.method:
             case "Dkl":
                 diff = mean_taken - td_target
@@ -368,9 +369,6 @@ def sample_candidates_gaussian(std_model, states, actions, next_states, num_samp
     return samples
 
 
-from torch import optim
-
-
 class ensemble_critic_loss:
     def __init__(self, state_dim, action_dim, batch_size, gamma=0.9):
         self.batch_size = batch_size
@@ -398,11 +396,11 @@ class ensemble_critic_loss:
         states_np, actions_np, rewards_np, next_states_np, dones_np = (
             replay_buffer.sample(batch_size)
         )
-        states = torch.FloatTensor(states_np)
-        actions = torch.FloatTensor(actions_np)
-        rewards = torch.FloatTensor(rewards_np).unsqueeze(1)
-        next_states = torch.FloatTensor(next_states_np)
-        dones = torch.FloatTensor(dones_np).unsqueeze(1)
+        states = torch.FloatTensor(states_np).to(DEVICE)
+        actions = torch.FloatTensor(actions_np).to(DEVICE)
+        rewards = torch.FloatTensor(rewards_np).unsqueeze(1).to(DEVICE)
+        next_states = torch.FloatTensor(next_states_np).to(DEVICE)
+        dones = torch.FloatTensor(dones_np).unsqueeze(1).to(DEVICE)
 
         # Compute the target Q-value using the target networks.
         next_actions = target_actor(next_states)
@@ -442,7 +440,9 @@ class actor_critic_loss_maxmax:
         self.action_dim = action_dim
         self.num_next_state_sample = num_next_state_sample
         self.next_state_sample = next_state_sample
-        self.std_model = StdPredictor(state_dim=state_dim, action_dim=action_dim)
+        self.std_model = StdPredictor(state_dim=state_dim, action_dim=action_dim).to(
+            DEVICE
+        )
         self.std_optimizer = optim.Adam(self.std_model.parameters(), lr=0.001)
         self.use_min = use_min
 
@@ -468,11 +468,11 @@ class actor_critic_loss_maxmax:
         states_np, actions_np, rewards_np, next_states_np, dones_np = (
             replay_buffer.sample(batch_size)
         )
-        states = torch.FloatTensor(states_np)
-        actions = torch.FloatTensor(actions_np)
-        rewards = torch.FloatTensor(rewards_np).unsqueeze(1)
-        next_states = torch.FloatTensor(next_states_np)
-        dones = torch.FloatTensor(dones_np).unsqueeze(1)
+        states = torch.FloatTensor(states_np).to(DEVICE)
+        actions = torch.FloatTensor(actions_np).to(DEVICE)
+        rewards = torch.FloatTensor(rewards_np).unsqueeze(1).to(DEVICE)
+        next_states = torch.FloatTensor(next_states_np).to(DEVICE)
+        dones = torch.FloatTensor(dones_np).unsqueeze(1).to(DEVICE)
 
         match self.next_state_sample:
             case "unif":
@@ -579,11 +579,13 @@ class modelbasedrollouts:
         self.rollout_horizon = rollout_horizon
 
         # Existing standard deviation model for the "gaussian" option.
-        self.std_model = StdPredictor(state_dim=state_dim, action_dim=action_dim)
+        self.std_model = StdPredictor(state_dim=state_dim, action_dim=action_dim).to(
+            DEVICE
+        )
         self.std_optimizer = optim.Adam(self.std_model.parameters(), lr=0.001)
 
         # New reward predictor and its optimizer.
-        self.reward_model = RewardPredictor(state_dim, action_dim)
+        self.reward_model = RewardPredictor(state_dim, action_dim).to(DEVICE)
         self.reward_optimizer = optim.Adam(self.reward_model.parameters(), lr=0.001)
 
     def multi_step_rollout_quantile(
@@ -746,11 +748,11 @@ class actor_critic_loss:
         states_np, actions_np, rewards_np, next_states_np, dones_np = (
             replay_buffer.sample(batch_size)
         )
-        states = torch.FloatTensor(states_np)
-        actions = torch.FloatTensor(actions_np)
-        rewards = torch.FloatTensor(rewards_np).unsqueeze(1)
-        next_states = torch.FloatTensor(next_states_np)
-        dones = torch.FloatTensor(dones_np).unsqueeze(1)
+        states = torch.FloatTensor(states_np).to(DEVICE)
+        actions = torch.FloatTensor(actions_np).to(DEVICE)
+        rewards = torch.FloatTensor(rewards_np).unsqueeze(1).to(DEVICE)
+        next_states = torch.FloatTensor(next_states_np).to(DEVICE)
+        dones = torch.FloatTensor(dones_np).unsqueeze(1).to(DEVICE)
 
         # Compute the target Q-value using the target networks.
         next_actions = target_actor(next_states)

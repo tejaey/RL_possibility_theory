@@ -50,7 +50,6 @@ logging.basicConfig(
 from training_loop import training_loop_qn
 
 
-## normal AC
 if __name__ == "__main__":
     # Example: Visualize LunarLander performance
     env: gym.Env = gym.make("LunarLander-v3", render_mode="rgb_array")

@@ -82,6 +82,26 @@ def plot_improved_rewards(reward_dict, smoothing_window=10, game="GAME NAME"):
     plt.show()
 
 
+def avg_results(rawresults, remove_first=0):
+    def avg2(listoflist):
+        # Computes an elementwise average across a list of lists.
+        l = []
+        i = 0
+        while True:
+            try:
+                l.append(np.mean([lst[i] for lst in listoflist]))
+                i += 1
+            except Exception as e:
+                print(e)
+                break
+        return l
+
+    game = {}
+    for combo in rawresults:
+        game[combo] = avg2(rawresults[combo])[remove_first:]
+    return game
+
+
 def visualize_agent(env, online_qnet, select_action, discrete, delay=30):
     """
     Runs one episode using the given online_qnet and captures frames for visualization.
