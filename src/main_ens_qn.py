@@ -47,72 +47,7 @@ logging.basicConfig(
     style="{",
 )
 
-
-def training_loop_qn(
-    env,
-    online_qnet,
-    target_qnet,
-    optimizers,
-    td_lossfunc: td_loss_meta,
-    select_action: Qnet_SelectActionMeta,
-    replay_buffer: ReplayBuffer,
-    configs: dict,
-    print_info: bool,
-    discrete: bool,
-) -> list[float]:
-    update_steps = configs.get("update_steps", 50)
-    action_dim = configs.get("action_dim", 1)
-    batch_size = configs.get("batch_size", 64)
-    episodes = configs.get("episodes", 500)
-    eps = configs.get("eps", 0.1)
-    rewards = []
-    obs, _ = env.reset()
-    # Populate replay buffer with random experience
-    for _ in range(2 * batch_size):
-        action = random.randint(0, action_dim - 1)
-        if not discrete:
-            action = action_array(action, action_dim)
-        next_obs, reward, terminated, truncated, _ = env.step(action)
-        done = terminated or truncated
-        replay_buffer.push(obs, action, reward, next_obs, done)
-        obs = next_obs
-        if done:
-            obs, _ = env.reset()
-
-    # Training loop
-    for episode in range(episodes):
-        obs, _ = env.reset()
-        episode_reward = 0
-        done = False
-        count = 0
-        while not done:
-            count += 1
-            action = select_action(state=obs, online_qnet=online_qnet, eps=eps)
-            if not discrete:
-                action = action_array(action=action, action_dim=action_dim)
-            next_obs, reward, terminated, truncated, _ = env.step(action)
-            done = terminated or truncated
-            episode_reward += reward
-            replay_buffer.push(obs, action, reward, next_obs, done)
-            obs = next_obs
-            if count % update_steps == 0:
-                batch = replay_buffer.sample(batch_size)
-                loss = td_lossfunc(
-                    batch=batch,
-                    online_qnet=online_qnet,
-                    target_qnet=target_qnet,
-                    optimizers=optimizers,
-                )
-                logging.debug(f"Count :{count} Loss:{loss}")
-                soft_update(
-                    target=target_qnet,
-                    online=online_qnet,
-                    tau=configs.get("tau_soft_update", 0.05),
-                )
-        if print_info:
-            print(f"Episode: {episode} | Rewards: {episode_reward}")
-        rewards.append(episode_reward)
-    return rewards
+from training_loop import training_loop_qn
 
 
 ## normal AC

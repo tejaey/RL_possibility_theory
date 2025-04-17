@@ -34,6 +34,45 @@ class single_dqn_eps_greedy(Qnet_SelectActionMeta):
         return q_values.argmax().item()
 
 
+class mean_logvar_std_greedy(Qnet_SelectActionMeta):
+    def __init__(self, action_dim, beta) -> None:
+        super().__init__(action_dim)
+        self.beta = beta
+
+    def call(self, state, online_qnet) -> int:
+        state_t = torch.FloatTensor(state).unsqueeze(0)
+        with torch.no_grad():
+            # Log var is ignored
+            mean, _ = online_qnet(state_t)
+        return mean.argmax().item()
+
+
+class mean_logvar_actionselection(Qnet_SelectActionMeta):
+    def __init__(self, action_dim, beta) -> None:
+        super().__init__(action_dim)
+        self.beta = beta
+
+    def call(self, state, online_qnet) -> int:
+        state_t = torch.FloatTensor(state).unsqueeze(0)
+        with torch.no_grad():
+            mean, logvar = online_qnet(state_t)
+        q_values = mean + self.beta * logvar
+        return q_values.argmax().item()
+
+
+class mean_logvar_maxexpected(Qnet_SelectActionMeta):
+    def __init__(self, action_dim) -> None:
+        super().__init__(action_dim)
+
+    def call(self, state, online_qnet) -> int:
+        state_t = torch.FloatTensor(state).unsqueeze(0)
+        with torch.no_grad():
+            mean, logvar = online_qnet(state_t)
+        var = torch.exp(logvar)
+        optimistic_q = (mean + torch.sqrt(mean**2 + 4 * var)) / 2
+        return optimistic_q.argmax().item()
+
+
 class ensemble_action_weighted_sum(Qnet_SelectActionMeta):
     def __init__(self, action_dim) -> None:
         super().__init__(action_dim)

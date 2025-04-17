@@ -1,4 +1,6 @@
 import gymnasium as gym
+import os
+import json
 from matplotlib import animation
 import torch, random
 from torch import optim
@@ -135,4 +137,17 @@ def select_combination(combinations):
         elif key == readchar.key.ENTER or key == readchar.key.SPACE:
             break  # Confirm selection
 
-    return combinations[selected_index]  # Return the selected combination
+    return combinations[
+        selected_index
+    ]  # Return the selected combinatiorequirementrequirementn
+
+
+def log_results(results_vals: dict, env_name: str):
+    log_dir = "./results_logs/"
+    os.makedirs(log_dir, exist_ok=True)  # Ensure the directory exists
+
+    now = datetime.now().strftime("%Y%m%d_%H%M%S")
+    file_path = os.path.join(log_dir, f"{env_name}_{now}.json")
+
+    with open(file_path, "w") as f:
+        json.dump(results_vals, f)

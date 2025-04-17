@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 import logging
 
 from qnets import StdPredictor, RewardModel
+from config import DEVICE
 
 
 def unpack_batch(batch):
@@ -30,6 +31,46 @@ class td_loss_meta(ABC):
     @abstractmethod
     def __call__(self, batch, online_qnet, target_qnet, optimizers) -> float:
         pass
+
+
+class distributional_qn_loss(td_loss_meta):
+    def __init__(self, method: Literal["Dkl", "Wasserstein"]):
+        self.method = method
+        super().__init__()
+
+    def __call__(self, batch, online_qnet, target_qnet, optimizers) -> float:
+        states_t, actions_t, rewards_t, next_states_t, dones_t = unpack_batch(batch)
+        mean, logvar = online_qnet(states_t)
+        mean_taken = mean.gather(1, actions_t)
+        logvar_taken = logvar.gather(1, actions_t)
+        var_taken = torch.exp(logvar_taken)
+
+        with torch.no_grad():
+            next_mean, next_logvar = target_qnet(next_states_t)
+            next_mean_max = next_mean.max(dim=1, keepdim=True)[0]
+            td_target = rewards_t + GAMMA * next_mean_max * (1 - dones_t)
+        match self.method:
+            case "Dkl":
+                diff = mean_taken - td_target
+
+                wasserstein_2_sq = diff.pow(2) + var_taken
+
+                loss = wasserstein_2_sq.mean()
+            case "Wasserstein":
+                diff_sq = (td_target - mean_taken).pow(2)
+
+                kl = 0.5 * (logvar_taken + np.log(2 * np.pi)) + diff_sq / (
+                    2 * var_taken
+                )
+
+                loss = kl.mean()
+            case _:
+                raise Exception("Invalid Method")
+        optimizers.zero_grad()
+
+        loss.backward()
+        optimizers.step()
+        return loss.item()
 
 
 class td_loss_ensemble_grad(td_loss_meta):
