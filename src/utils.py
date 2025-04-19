@@ -57,7 +57,9 @@ def hard_target_update(main, target):
     target.load_state_dict(main.state_dict())
 
 
-def plot_improved_rewards(reward_dict, smoothing_window=10, game="GAME NAME"):
+def plot_improved_rewards(
+    reward_dict, smoothing_window=10, game="GAME NAME", save: bool = False
+):
     plt.figure(figsize=(12, 6))
 
     for algoname, reward_list in reward_dict.items():
@@ -74,10 +76,11 @@ def plot_improved_rewards(reward_dict, smoothing_window=10, game="GAME NAME"):
     plt.tight_layout()
 
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{game}_rewards_plot_{current_time}.png"
+    filename = f".images/{game}_rewards_plot_{current_time}.png"
 
-    plt.savefig(filename, dpi=300, bbox_inches="tight")
-    print(f"Plot saved as: {filename}")
+    if save:
+        plt.savefig(filename, dpi=300, bbox_inches="tight")
+        print(f"Plot saved as: {filename}")
 
     plt.show()
 
@@ -162,12 +165,12 @@ def select_combination(combinations):
     ]  # Return the selected combinatiorequirementrequirementn
 
 
-def log_results(results_vals: dict, env_name: str):
+def log_results(results_vals: dict, env_name_desc: str):
     log_dir = "./results_logs/"
     os.makedirs(log_dir, exist_ok=True)  # Ensure the directory exists
 
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_path = os.path.join(log_dir, f"{env_name}_{now}.json")
+    file_path = os.path.join(log_dir, f"{env_name_desc}_{now}.json")
 
     with open(file_path, "w") as f:
         json.dump(results_vals, f)

@@ -41,3 +41,27 @@ Write an experiment for all the methods written about in the report.
 Construct some special demonstrative experiments.
 
 I need to complete and get the results by Thursday 6pm so that I can make a draft presentation to show to my professor.
+
+# Presentation Slides
+
+## Intro Slide
+
+Name Project Title Etc
+
+## Intro To Reinforcement Learning
+
+Basic of DQN
+
+## Motivation of having a distribution
+
+## Intro to possibility theory
+
+## Full Possible Distirbution
+
+## Example with C51 update
+
+## Disitbtuion with Mean Var
+
+## possibility over Q Networks
+
+different methods and theory here

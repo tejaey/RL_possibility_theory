@@ -750,56 +750,56 @@ Under the assumption that \(f(q \mid s,a)\) is a Gaussian possibility function, 
 
 \section{Atomic Q Values}
 \myworries{TODO: implement the code for this. Discuss with prof}\par
-As discussed before, \cite{bellemare2017} introduced distributional RL, which parameterizes a distribution over Q-values using fixed atomic values and assigns probabilities to these fixed atoms. This approach can potentially be enhanced using possibility theory—that is, by generating possibility values for the canonical atomic returns.
-
-Let \( f(q \mid s, a) \) be the mapping that assigns to each \( q \in \mathbb{Q} \) (where \(\mathbb{Q}\) is a finite ordered tuple of possible \(q\) values, e.g., \(\{q_1, q_2, \dots, q_N\}\)) the possibility that \(q\) is the true Q-value for the state–action pair \((s,a)\). An informed prior over the Q-values can be formed by setting 
+As discussed in Bellemare \emph{et al.} (2017), Distributional RL parameterizes the return distribution $Z(s,a)$ over a discrete set of atoms $\{q_1, \dots, q_N\}$ and learns probabilities $p_j(s,a) = \Pr\bigl(Z(s,a)=q_j\bigr)$. We now extend this framework with possibility theory by maintaining, for each state–action pair $(s,a)$, a possibility function
 \[
-f(q \mid s, a) = 1 \quad \forall\, q \in \mathbb{Q},\, s,\, a,
+  f\bigl(q_j \mid s,a\bigr) \;=\; \text{degree of possibility that }q_j\text{ is the true return},
+  \quad j=1,\dots,N.
 \]
-i.e., initially all values of \(q\) are considered fully possible.
-
-For a transition \((s, a, r, s')\), we can form a likelihood function by using a Gaussian kernel. Specifically, the likelihood of observing a reward \(r\) given that the true return is \(q_j\) is defined as:
+Initially, under complete ignorance,
 \[
-p_{R}(r \mid q_j) = \exp\!\left(-\frac{(q_j - r)^2}{2\sigma^2}\right).
+  f\bigl(q_j \mid s,a\bigr) = 1,
+  \quad \forall\,j,\,s,\,a.
 \]
 
-This likelihood is used to update the possibility function \( f(q \mid s, a) \) via a possibilistic version of Bayes' rule. The updated possibility of the atom \(q_j\) is given by:
+\subsection*{Possibilistic Bellman Update}
+Given a transition $(s,a,r,s')$, let $a^*=\arg\max_{a'}\sum_{k} p_k(s',a')\,q_k$ be the greedy action under the mean return.  Define the target atoms
 \[
-f(q_j \mid s, a) \leftarrow \frac{p_R(r \mid q_j)\, f(q_j \mid s, a)}{\displaystyle \sup_{k \in \{1, 2, \dots, N\}} \bigl\{p_R(r \mid q_k)\, f(q_k \mid s, a)\bigr\}}.
+  T_k = r + \gamma\,q_k, \qquad
+  T_k \leftarrow \min\{V_{\min}, \max\{T_k, V_{\max}\}\},
+  \quad k=1,\dots,N,
 \]
-Since \( f(q_j \mid s, a) \) is initialized to 1 for all \(q_j\), the first update simplifies to the ratio of likelihoods.
-
-Note that by construction, for every \(s,a\) there exists at least one \(j\) such that 
+clipped to the fixed support $[V_{\min},V_{\max}]$.  We then compute a compatibility score for each source atom $q_j$ against each target $T_k$ via a Gaussian kernel:
 \[
-f(q_j \mid s, a) = 1,
+  L_{jk} = \exp\!\Bigl(-\tfrac{(q_j - T_k)^2}{2\sigma^2}\Bigr).
 \]
-satisfying the normalization condition in possibility theory.
-
-In the discrete setting, the function \( f(q_j \mid s, a) \) can be parameterized with a table. The optimistic Q-value can then be computed using the maximum expected value method:
+Aggregating over all target atoms weighted by their probabilities gives the total support for $q_j$:
 \[
-\bar{Q}(s, a) = \sup_{j \in \{1, \dots, N\}} \{q_j\, f(q_j \mid s, a)\}.
+  \ell_j = \sum_{k=1}^N p_k(s',a^*)\,L_{jk}.
 \]
-This means that initially, when the possibility scores are all 1, the maximum Q-value is chosen (i.e., all actions appear highly promising). As learning proceeds, the credibility of overly optimistic \(q_j\) values will decrease and \(\bar{Q}(s,a)\) will favor the Q-values with high credibility.
-
-This framework can be generalized to the deep learning case by using a deep neural network as a function approximate for \( f(q_j \mid s, a) \).
-
-A Bellman target distribution can be formulated as
+Finally, apply a possibilistic normalisation (supremum) to update:
 \[
-\mathcal{T}Q = r + \gamma\, f(s', a'),
+  f_{\text{new}}\bigl(q_j \mid s,a\bigr)
+  = \frac{\ell_j \; f\bigl(q_j \mid s,a\bigr)}{\max_{i}\{\ell_i \; f(q_i\mid s,a)\}}.
 \]
-where \( a' = \arg\max_{a} \bar{Q}(s',a) \). \myworries{How to account for the shift here?} For the deep learning update, the possibility distribution must be renormalized as follows:
-\[
-f'(q_j \mid s, a ) = \frac{f(q_j \mid s, a)}{\displaystyle \sup_{q \in \mathbb{Q}} f(q \mid s, a)}.
-\]
+By construction, $\max_j f_{\text{new}}(q_j\mid s,a)=1$, preserving the possibility axioms.
 
-A loss function such as the \(L_2\) divergence loss can be used for gradient descent. For example, if \(\hat{f}(q_j \mid s, a)\) denotes the target possibility distribution obtained via the Bellman backup, we can define the loss as:
+\subsection*{Defuzzification and Learning}
+Having updated the possibility distribution, one can extract an optimistic Q-value via the maximum expected value criterion:
 \[
-L(s,a) = \sum_{j=1}^{N} \Bigl( f(q_j \mid s, a) - \hat{f}(q_j \mid s, a) \Bigr)^2.
+  \bar Q(s,a) = \max_{j}\bigl\{q_j\,f(q_j\mid s,a)\bigr\}.
 \]
-Minimizing this loss updates the network parameters so that the predicted possibility distribution aligns with the target distribution.
-
+In the deep setting, a neural network can parameterize $f(q_j\mid s,a;\theta)$ for all $j$.  After computing the target possibility scores $\hat f_j$ via the update above, we renormalize:
+\[
+  f'(q_j\mid s,a;\theta) = \frac{\hat f_j}{\max_i \hat f_i}
+\]
+and minimize the $L_2$ divergence
+\[
+  \mathcal L(\theta) = \sum_{j=1}^{N}\bigl(f'(q_j\mid s,a) - f(q_j\mid s,a;\theta)\bigr)^2
+\]
+by gradient descent, aligning the network’s output to the updated possibilistic target distribution.
 
 \chapter{Possibilistic Q Ensembles}
+
 
 Epistemic uncertainty can be modeled by having a possibility distribution over Q-value functions. Practically, this can be achieved by training an ensemble of Q-networks, where each network represents a hypothesis of possible Q-functions. This approach can be interpreted as drawing samples from a posterior distribution of possible Q-values, thereby approximating the agent's uncertainty over the state–action values. In particular, the different networks should disagree on underexplored \((s,a)\) pairs, indicating uncertainty about that region of the environment; conversely, if the networks generally agree, then the region is likely well explored. Ensembles have been shown to perform better than a single network because they can provide improved Q-value estimates and lead to more stable learning \myworries{cite}. In this work, we explore three different avenues:
 \begin{itemize}

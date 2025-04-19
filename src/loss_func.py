@@ -8,7 +8,13 @@ import torch.nn as nn
 from abc import ABC, abstractmethod
 import logging
 
-from qnets import StdPredictor, RewardModel
+from qnets import (
+    StdPredictor,
+    QuantileModel,
+    RewardModel,
+    EnsembleQuantileModels,
+    MeanStdPredictor,
+)
 from config import DEVICE
 
 
@@ -72,6 +78,112 @@ class distributional_qn_loss(td_loss_meta):
         loss.backward()
         optimizers.step()
         return loss.item()
+
+
+class td_loss_ensemble_grad_updated2(td_loss_meta):
+    """
+    Attributes:
+        ALPHA (float): smoothing factor for 'mle_max_update'
+        GAMMA (float): reward discount
+        BETA  (float): weight on normalized grad‑norm in L'
+        use_ensemble_min (bool): whether to use the min over target ensemble for next Q
+    """
+
+    def __init__(
+        self,
+        GAMMA,
+        ALPHA,
+        BETA,
+        possibility_update: Literal["mle", "mle_max_update"],
+        use_ensemble_min: bool = False,
+    ):
+        super().__init__()
+        self.GAMMA = GAMMA
+        self.ALPHA = ALPHA
+        self.BETA = BETA
+        self.possibility_update = possibility_update
+        self.use_ensemble_min = use_ensemble_min
+
+    def __call__(self, batch, online_qnet, target_qnet, optimizers) -> float:
+        # unpack (on DEVICE already)
+        states_t, actions_t, rewards_t, next_states_t, dones_t = unpack_batch(batch)
+        N = online_qnet.num_ensemble
+
+        raw_losses = [0.0] * N
+        grad_norms = [0.0] * N
+
+        # 1) Compute raw TD-loss Li and gradient norms Gi, step once
+        for i, qnet in enumerate(online_qnet.qnets):
+            opt = optimizers[i]
+            opt.zero_grad()
+
+            # current Q
+            cur_q = qnet(states_t).gather(1, actions_t)
+
+            # next Q: either min over ensemble or per-net
+            if self.use_ensemble_min:
+                with torch.no_grad():
+                    stacked = torch.stack(
+                        [
+                            tn(states_t).max(1, keepdim=True)[0]
+                            for tn in target_qnet.qnets
+                        ],
+                        dim=0,
+                    )
+                    nxt_q = torch.amin(stacked, dim=0)
+            else:
+                with torch.no_grad():
+                    nxt_q = target_qnet.qnets[i](next_states_t).max(1, keepdim=True)[0]
+
+            # TD target and loss
+            tgt_q = rewards_t + self.GAMMA * nxt_q * (1 - dones_t)
+            Li = self.lossfunc(cur_q, tgt_q)
+            Li.backward()
+
+            # grad norm
+            g2 = 0.0
+            for p in qnet.parameters():
+                if p.grad is not None:
+                    g2 += p.grad.data.norm(2).item() ** 2
+            Gi = math.sqrt(g2)
+
+            opt.step()
+
+            raw_losses[i] = Li.item()
+            grad_norms[i] = Gi
+
+        # 2) Normalize gradient norms
+        maxG = max(grad_norms) + 1e-8
+
+        # 3) Compute likelihoods via corrected losses L'
+        likelihoods = []
+        for Li, Gi in zip(raw_losses, grad_norms):
+            Lp = Li + self.BETA * (Gi / maxG)
+            likelihoods.append(math.exp(-Lp))
+
+        # 4) Update possibilities
+        poss = online_qnet.possibility
+        if self.possibility_update == "mle":
+            max_l = max(l * p for l, p in zip(likelihoods, poss)) + 1e-8
+            for i in range(N):
+                poss[i] = poss[i] * likelihoods[i] / max_l
+
+        elif self.possibility_update == "mle_max_update":
+            max_l = max(l * p for l, p in zip(likelihoods, poss)) + 1e-8
+            for i in range(N):
+                poss[i] = min(
+                    max(self.ALPHA * poss[i], likelihoods[i] / max_l),
+                    1.0,
+                )
+        else:
+            raise ValueError(f"Unknown possibility_update {self.possibility_update!r}")
+
+        # 5) Floor & normalize
+        if max(poss) > 0:
+            poss = [p / max(poss) for p in poss]
+        online_qnet.possibility = [max(p, 0.001) for p in poss]
+
+        return float(np.mean(raw_losses))
 
 
 class td_loss_ensemble_grad(td_loss_meta):
@@ -232,6 +344,7 @@ class td_loss_ensemble(td_loss_meta):
                     )
 
             case "avg_likelihood_ema":
+                print("this should not be in use")
                 # model weights remain close to 1.
                 avg_likelihood = sum(likelihoods) / len(likelihoods) + 1e-8
                 for i in range(online_qnet.num_ensemble):
@@ -265,7 +378,12 @@ class td_loss_ensemble(td_loss_meta):
         #     online_qnet.possibility[i] = max(min(online_qnet.possibility[i]* candidate, 1), 0.1)
         # total = sum(online_qnet.possibility)
         # online_qnet.possibility = [p / total for p in online_qnet.possibility]
+        max_possibility = max(online_qnet.possibility)
+        online_qnet.possibility = [
+            (i / max_possibility) for i in online_qnet.possibility
+        ]
         online_qnet.possibility = [max(i, 0.001) for i in online_qnet.possibility]
+
         if self.normalise:
             s = sum(online_qnet.possibility)
             if s == 0:
@@ -273,6 +391,105 @@ class td_loss_ensemble(td_loss_meta):
                 s += 1e-16
             online_qnet.possibility = [x / s for x in online_qnet.possibility]
         return float(np.mean(losses))
+
+
+class td_loss_ensemble_grad_updated(td_loss_meta):
+    """
+    Attributes:
+        ALPHA (float): smoothing factor for 'mle_max_update'
+        GAMMA (float): reward discount
+        BETA  (float): weight on normalized grad‐norm in L'
+    """
+
+    def __init__(
+        self,
+        GAMMA,
+        ALPHA,
+        BETA,
+        possibility_update: Literal["mle", "mle_max_update"],
+    ):
+        super().__init__()
+        self.GAMMA = GAMMA
+        self.ALPHA = ALPHA
+        self.BETA = BETA
+        self.possibility_update = possibility_update
+
+    def __call__(self, batch, online_qnet, target_qnet, optimizers) -> float:
+        # 1) unpack and prepare
+        states_t, actions_t, rewards_t, next_states_t, dones_t = unpack_batch(batch)
+        N = online_qnet.num_ensemble
+
+        raw_losses = [0.0] * N
+        grad_norms = [0.0] * N
+
+        # 2) single backward & step for each member, record Li and Gi
+        for i, qnet in enumerate(online_qnet.qnets):
+            opt = optimizers[i]
+            opt.zero_grad()
+
+            # forward pass
+            current_q = qnet(states_t).gather(1, actions_t)
+            with torch.no_grad():
+                next_q = target_qnet.qnets[i](next_states_t).max(1, keepdim=True)[0]
+            target_q = rewards_t + self.GAMMA * next_q * (1 - dones_t)
+
+            # compute raw TD‐loss and backprop
+            Li = self.lossfunc(current_q, target_q)
+            Li.backward()
+
+            # measure gradient norm Gi = ||∇θ Li||
+            g2 = 0.0
+            for p in qnet.parameters():
+                if p.grad is not None:
+                    g2 += p.grad.data.norm(2).item() ** 2
+            Gi = math.sqrt(g2)
+
+            # update parameters
+            opt.step()
+
+            raw_losses[i] = Li.item()
+            grad_norms[i] = Gi
+
+        # 3) normalize grad norms
+        maxG = max(grad_norms) + 1e-8
+
+        # 4) build likelihoods using corrected losses L'i
+        likelihoods = []
+        for Li, Gi in zip(raw_losses, grad_norms):
+            Lp = Li + self.BETA * (Gi / maxG)
+            likelihoods.append(math.exp(-Lp))
+
+        # 5) update possibilities
+        poss = online_qnet.possibility
+        match self.possibility_update:
+            case "mle":
+                max_l = max(l * p for l, p in zip(likelihoods, poss)) + 1e-8
+                for i in range(N):
+                    poss[i] = poss[i] * likelihoods[i] / max_l
+
+            case "mle_max_update":
+                max_l = max(l * p for l, p in zip(likelihoods, poss)) + 1e-8
+                for i in range(N):
+                    # use ALPHA as a damping factor on old possibility
+                    poss[i] = min(
+                        max(self.ALPHA * poss[i], likelihoods[i] / max_l),
+                        1.0,
+                    )
+
+            case _:
+                raise ValueError(
+                    f"Unknown possibility_update {self.possibility_update!r}"
+                )
+
+        # 6) floor and normalize
+        # (first rescale so the max is 1, then floor at 0.001)
+        max_poss = max(poss)
+        if max_poss > 0:
+            poss = [p / max_poss for p in poss]
+        poss = [max(p, 0.001) for p in poss]
+
+        online_qnet.possibility = poss
+        return float(np.mean(raw_losses))
 
 
 class td_loss_single_dqn(td_loss_meta):
@@ -333,11 +550,19 @@ def sample_candidates_unif(lower, upper, num_samples):
     return candidates
 
 
-def gaussian_std_nll_loss(predicted_log_std, error):
+def gaussian_std_nll_loss_bak(predicted_log_std, error):
     std = torch.exp(predicted_log_std)
     const = torch.tensor(2 * torch.pi, device=predicted_log_std.device)
     loss = 0.5 * torch.log(const) + predicted_log_std + 0.5 * ((error) / std) ** 2
     return loss.mean()
+
+
+def gaussian_std_nll_loss(
+    mu: torch.Tensor, std: torch.Tensor, target: torch.Tensor, eps: float = 1e-6
+) -> torch.Tensor:
+    var = std.pow(2) + eps
+    nll = 0.5 * (torch.log(2 * torch.pi * var) + (target - mu).pow(2) / var)
+    return nll.mean()
 
 
 def sample_candidates_gaussian(std_model, states, actions, next_states, num_samples):
@@ -431,7 +656,7 @@ class actor_critic_loss_maxmax:
         batch_size,
         gamma=0.9,
         num_next_state_sample=10,
-        next_state_sample: Literal["gaussian", "triangular", "unif", "null"] = "unif",
+        next_state_sample: Literal["gaussian", "unif", "null"] = "unif",
         use_min: bool = False,
     ):
         self.batch_size = batch_size
@@ -455,8 +680,6 @@ class actor_critic_loss_maxmax:
         online_critic,
         target_critic,
         critic_optimizer,
-        quantile_models,
-        quantile_optimizers,
         **kwargs,
     ):
         gamma = self.gamma
@@ -485,16 +708,6 @@ class actor_critic_loss_maxmax:
                 candidate_next_states = sample_candidates_unif(
                     quantile_preds[0], quantile_preds[1], self.num_next_state_sample
                 )
-            case "triangular":
-                quantile_preds = quantile_models(states, actions)
-                for i, tau in enumerate(quantile_models.quantiles):
-                    loss_i = quantile_loss(quantile_preds[i], next_states, tau=tau)
-                    quantile_optimizers[i].zero_grad()
-                    loss_i.backward()
-                    quantile_optimizers[i].step()
-                candidate_next_states = sample_candidates_triangular(
-                    quantile_preds[0], quantile_preds[1], self.num_next_state_sample
-                )
             case "null":
                 candidate_next_states = next_states.unsqueeze(1)
             case "gaussian":
@@ -505,7 +718,7 @@ class actor_critic_loss_maxmax:
                     next_states - next_states
                 )  # are not modeling a residual, you may need an alternative target.
                 # In many cases, you’d have a learned mean and then train the std on the residual.
-                gaussian_loss = gaussian_std_nll_loss(predicted_log_std, error)
+                gaussian_loss = gaussian_std_nll_loss_bak(predicted_log_std, error)
                 self.std_optimizer.zero_grad()
                 gaussian_loss.backward()
                 self.std_optimizer.step()
@@ -683,7 +896,7 @@ class modelbasedrollouts:
         elif self.next_state_sample == "gaussian":
             predicted_log_std = self.std_model(states, actions)
             error = next_states - next_states  # Zero error target
-            gaussian_loss = gaussian_std_nll_loss(predicted_log_std, error)
+            gaussian_loss = gaussian_std_nll_loss_bak(predicted_log_std, error)
             self.std_optimizer.zero_grad()
             gaussian_loss.backward()
             self.std_optimizer.step()
@@ -773,3 +986,184 @@ class actor_critic_loss:
         actor_optimizer.step()
 
         return actor_loss
+
+
+class ActorCriticLossMaxMaxFix:
+    def __init__(
+        self,
+        state_dim: int,
+        action_dim: int,
+        batch_size: int,
+        gamma: float = 0.9,
+        num_next_state_sample: int = 10,
+        next_state_sample: Literal["quantile", "gaussian", "null"] = "quantile",
+        rollout_depth: int = 0,  # only 0 or 1 supported
+        use_min: bool = False,
+        rollout_prob: float = 0.1,
+    ):
+        assert rollout_depth in (0, 1), "Only rollout_depth=0 or 1 supported"
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.batch_size = batch_size
+        self.gamma = gamma
+        self.next_state_sample = next_state_sample
+        self.rollout_depth = rollout_depth
+        self.use_min = use_min
+        self.num_next_state_sample = num_next_state_sample
+        self.rollout_prob = 1 - rollout_prob
+        # 1) Learned reward model R(s, s')
+        self.reward_model = RewardModel(state_dim).to(DEVICE)
+        self.reward_opt = optim.Adam(self.reward_model.parameters(), lr=1e-3)
+
+        # 2) Imagination model (only if rollout_depth=1 and not "null")
+        if rollout_depth == 1 and next_state_sample == "quantile":
+            self.quantile_models = EnsembleQuantileModels(
+                state_dim, action_dim, quantiles=[0.05, 0.95], hidden_dim=128
+            ).to(DEVICE)
+            self.quantile_opts = [
+                optim.Adam(m.parameters(), lr=1e-3) for m in self.quantile_models.models
+            ]
+        elif rollout_depth == 1 and next_state_sample == "gaussian":
+            self.next_state_model = MeanStdPredictor(
+                state_dim, action_dim, hidden_dim=128
+            ).to(DEVICE)
+            self.next_state_opt = optim.Adam(
+                self.next_state_model.parameters(), lr=1e-3
+            )
+        # else: no predictor needed for depth=0 or "null"
+
+    def compute_yj(
+        self,
+        states: torch.Tensor,  # (bs, state_dim)
+        actions: torch.Tensor,  # (bs, action_dim)
+        next_states: torch.Tensor,  # (bs, state_dim)
+        target_actor: nn.Module,
+        target_critic: nn.Module,
+        rewards: torch.Tensor,  # (bs,1)
+        dones: torch.Tensor,  # (bs,1)
+    ) -> torch.Tensor:
+        bs = states.size(0)
+        γ = self.gamma
+
+        # --- Step 0: Standard TD(0) bootstrap on recorded transition ---
+        with torch.no_grad():
+            a1 = target_actor(next_states)  # (bs, A)
+            q1 = target_critic(next_states, a1)  # (bs, 1)
+        # shape (bs, 1, 1)
+        y0 = (rewards + γ * (1 - dones) * q1).unsqueeze(1)
+
+        if self.rollout_depth == 0 or self.next_state_sample == "null":
+            return y0  # (bs,1,1)
+
+        # --- Now rollout_depth == 1 and next_state_sample != "null" ---
+        # Train the imagination model on real data:
+        if self.next_state_sample == "quantile":
+            for τ, m, opt in zip(
+                self.quantile_models.quantiles,
+                self.quantile_models.models,
+                self.quantile_opts,
+            ):
+                q_hat = m(states, actions)
+                loss_q = quantile_loss(q_hat, next_states, tau=τ)
+                opt.zero_grad()
+                loss_q.backward()
+                opt.step()
+        else:  # gaussian
+            mu, std = self.next_state_model(states, actions)
+            loss_g = gaussian_std_nll_loss(mu, std, next_states)
+            self.next_state_opt.zero_grad()
+            loss_g.backward()
+            self.next_state_opt.step()
+
+        if random.random() < self.rollout_prob:
+            return y0
+        # --- One imagined step (all in no_grad) ---
+        with torch.no_grad():
+            # expand recorded next_state s1 to shape (bs, N, D)
+            N = self.num_next_state_sample
+            s1 = next_states.unsqueeze(1).expand(bs, N, self.state_dim)  # (bs,N,D)
+            a1_rep = target_actor(s1.reshape(-1, self.state_dim))  # (bs*N, A)
+
+            # generate s2 candidates
+            if self.next_state_sample == "quantile":
+                ql, qu = self.quantile_models(s1.reshape(-1, self.state_dim), a1_rep)
+                eps = torch.rand_like(ql)
+                s2_flat = (1 - eps) * ql + eps * qu
+            else:  # gaussian
+                mu, std = self.next_state_model(s1.reshape(-1, self.state_dim), a1_rep)
+                s2_flat = mu + std * torch.randn_like(std)
+
+            # reshape s2_flat → (bs, N, D)
+            s2 = s2_flat.view(bs, N, self.state_dim)
+
+            # learned reward R(s1, s2)
+            r1 = self.reward_model(s1.reshape(-1, self.state_dim), s2_flat).view(
+                bs, N, 1
+            )
+
+            # Q(s2, μ(s2))
+            a2 = target_actor(s2_flat)  # (bs*N, A)
+            q2 = target_critic(s2_flat, a2).view(bs, N, 1)  # (bs,N,1)
+
+            # one imagined Bellman step: R + γ Q
+            imag_term = r1 + γ * q2  # (bs,N,1)
+
+        # final y1: r0 + γ * imag_term  => r0 + γ*R + γ^2 Q
+        y1 = rewards.unsqueeze(1) + γ * imag_term  # (bs,N,1)
+
+        return y1
+
+    def __call__(
+        self,
+        replay_buffer,
+        online_actor,
+        target_actor,
+        actor_optimizer,
+        online_critic,
+        target_critic,
+        critic_optimizer,
+        **kwargs,
+    ):
+        if len(replay_buffer) < self.batch_size:
+            return None
+
+        # 1) sample batch
+        s, a, r, s_next, done = replay_buffer.sample(self.batch_size)
+        states = torch.FloatTensor(s).to(DEVICE)
+        actions = torch.FloatTensor(a).to(DEVICE)
+        rewards = torch.FloatTensor(r).unsqueeze(-1).to(DEVICE)
+        next_states = torch.FloatTensor(s_next).to(DEVICE)
+        dones = torch.FloatTensor(done).unsqueeze(-1).to(DEVICE)
+
+        # 2) train reward model on real (s,s')
+        r_pred = self.reward_model(states, next_states)
+        loss_r = F.mse_loss(r_pred, rewards)
+        self.reward_opt.zero_grad()
+        loss_r.backward()
+        self.reward_opt.step()
+
+        # 3) compute y_j (0 or 1 step)
+        Y = self.compute_yj(
+            states, actions, next_states, target_actor, target_critic, rewards, dones
+        )
+        # Y.shape = (bs, N, 1)
+        if self.use_min:
+            Y_agg, _ = torch.min(Y, dim=1)  # (bs,1)
+        else:
+            Y_agg, _ = torch.max(Y, dim=1)  # (bs,1)
+
+        # 4) critic update
+        target_q = Y_agg.detach()
+        current_q = online_critic(states, actions)
+        loss_c = F.mse_loss(current_q, target_q)
+        critic_optimizer.zero_grad()
+        loss_c.backward()
+        critic_optimizer.step()
+
+        # 5) actor update
+        loss_a = -online_critic(states, online_actor(states)).mean()
+        actor_optimizer.zero_grad()
+        loss_a.backward()
+        actor_optimizer.step()
+
+        return loss_a

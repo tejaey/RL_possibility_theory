@@ -52,7 +52,7 @@ class Actor(SimpleDQN):
 
 class RewardModel(nn.Module):
     def __init__(self, state_dim, hidden_dim=128):
-        super(SimpleCritic, self).__init__()
+        super().__init__()
         self.net = nn.Sequential(
             nn.Linear(state_dim + state_dim, hidden_dim),
             nn.Sigmoid(),
@@ -190,3 +190,41 @@ class StdPredictor(nn.Module):
         # Clamp log_std for numerical stability
         log_std = torch.clamp(log_std, min=-20, max=2)
         return log_std
+
+
+class MeanStdPredictor(nn.Module):
+    def __init__(self, state_dim, action_dim, hidden_dim=128):
+        """
+        Predicts both the next-state mean and diagonal standard deviation
+        for a Gaussian transition model given (state, action).
+        """
+        super().__init__()
+        # shared feature extractor
+        self.shared = nn.Sequential(
+            nn.Linear(state_dim + action_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+        )
+        self.mean_head = nn.Linear(hidden_dim, state_dim)
+        self.log_std_head = nn.Linear(hidden_dim, state_dim)
+
+        nn.init.constant_(self.log_std_head.bias, -1.0)
+
+    def forward(self, state, action):
+        """
+        :param state:   tensor of shape (B, state_dim)
+        :param action:  tensor of shape (B, action_dim)
+        :returns:
+          - mean: tensor of shape (B, state_dim)
+          - std:  tensor of shape (B, state_dim), each > 0
+        """
+        x = torch.cat([state, action], dim=-1)  # (B, state_dim + action_dim)
+        h = self.shared(x)  # (B, hidden_dim)
+
+        mean = self.mean_head(h)  # (B, state_dim)
+        log_std = self.log_std_head(h)  # (B, state_dim)
+        log_std = torch.clamp(log_std, min=-20, max=2)
+        std = torch.exp(log_std)
+
+        return mean, std

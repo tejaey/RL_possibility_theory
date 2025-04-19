@@ -85,7 +85,7 @@ def training_loop_qn(
             episode_reward += reward
             replay_buffer.push(obs, action, reward, next_obs, done)
             obs = next_obs
-            if count % update_steps == 0:
+            if count % update_steps == 1:
                 batch = replay_buffer.sample(batch_size)
 
                 loss = td_lossfunc(
@@ -103,6 +103,7 @@ def training_loop_qn(
                 )
         if print_info:
             print(f"Episode: {episode} | Rewards: {episode_reward} LOL")
+
         rewards.append(episode_reward)
     return rewards
 
