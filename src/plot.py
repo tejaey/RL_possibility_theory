@@ -109,24 +109,6 @@ if __name__ == "__main__":
     def uses_majority_voting(string):
         return len(re.findall("voting", string)) >= 1
 
-    def avg_results(resultsdict):
-        def avg2(listoflist):
-            # Computes an elementwise average across a list of lists.
-            l = []
-            i = 0
-            while True:
-                try:
-                    l.append(np.mean([lst[i] for lst in listoflist]))
-                    i += 1
-                except Exception as e:
-                    print(e)
-                    break
-            return l
-
-        game = {}
-        for combo in resultsdict:
-            game[combo] = avg2(rawgame[combo])[200:]
-
     def get_loss_function_name(combo_str):
         """
         Extracts the loss function portion of the combination name.

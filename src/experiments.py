@@ -161,18 +161,13 @@ def ensemble_experiment(
             )
             loss_configs.append((loss_fn, name))
 
-    for upd in ["mle", "mle_max_update"]:
-        for use_min in [True, False]:
-            for beta in [0.5, 1]:
-                name = f"td_ensemble_grad_{upd}_min{use_min}_beta{beta}"
-                loss_fn = td_loss_ensemble_grad_updated2(
-                    GAMMA=GAMMA,
-                    BETA=beta,
-                    ALPHA=0.9,
-                    possibility_update=upd,
-                    use_ensemble_min=use_min,
-                )
-                loss_configs.append((loss_fn, name))
+    for beta in [0.1, 0.01]:
+        for alpha in [0.2, 0.1]:
+            name = f"td_ensemble_grad_beta{beta}_alpha{1 - alpha}"
+            loss_fn = td_loss_ensemble_grad(
+                GAMMA=GAMMA, BETA=beta, ALPHA=alpha, normalise=False
+            )
+            loss_configs.append((loss_fn, name))
 
     # 2) Action selection methods
     action_methods = [
