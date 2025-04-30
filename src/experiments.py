@@ -1,37 +1,25 @@
-import json
-import logging
+from typing import Literal
 
-import gymnasium as gym
-import matplotlib.pyplot as plt
-from gymnasium.spaces import discrete
-from matplotlib import animation
-from PIL.Image import Exif
-from torch import optim, utils
-from torch.nn import GaussianNLLLoss
-from torch.optim import optimizer
+from torch import optim
 
-import action_selection
-from action_selection import (AC_SelectAction, Qnet_SelectActionMeta,
-                              ensemble_action_majority_voting,
-                              ensemble_action_weighted_sum,
-                              mean_logvar_actionselection,
-                              mean_logvar_maxexpected,
-                              select_action_eps_greedy_meanvarQnet,
-                              single_dqn_eps_greedy)
+from action_selection import (
+    AC_SelectAction,
+    ensemble_action_majority_voting,
+    ensemble_action_maximum_expected,
+    mean_logvar_actionselection,
+    mean_logvar_maxexpected,
+)
 from config import DEVICE
-from custom_env import SparseHalfCheetah, SparseWalker2DEnv, make_env
-from loss_func import *
-from loss_func import (ActorCriticLossMaxMaxFix_onestep,
-                       ActorCriticLossMaxMaxFix_zerostep, actor_critic_loss,
-                       actor_critic_loss_maxmax, td_loss_ensemble,
-                       td_loss_ensemble_grad_updated2, td_loss_meta)
-from qnets import (Actor, EnsembleCritic, EnsembleDQN, EnsembleQuantileModels,
-                   MeanVarianceQNetwork, QuantileModel, SimpleCritic,
-                   SimpleDQN)
+from custom_env import make_env
+from loss_func import (
+    ActorCriticLossMaxMaxFix_onestep,
+    ActorCriticLossMaxMaxFix_zerostep,
+    distributional_qn_loss,
+    td_loss_ensemble,
+)
+from qnets import Actor, EnsembleDQN, MeanVarianceQNetwork, SimpleCritic
 from training_loop import training_loop_ac, training_loop_qn
-from utils import (ReplayBuffer, action_array, hard_target_update, log_results,
-                   plot_improved_rewards, select_combination, soft_update,
-                   visualize_agent)
+from utils import ReplayBuffer, hard_target_update
 
 
 def mean_var_experiment(
@@ -139,7 +127,7 @@ def ensemble_experiment(
             loss_configs.append((loss_fn, name))
 
     action_methods = [
-        (ensemble_action_weighted_sum(action_dim), "weighted_sum"),
+        (ensemble_action_maximum_expected(action_dim), "weighted_sum"),
         (ensemble_action_majority_voting(action_dim), "majority_vote"),
     ]
 
@@ -210,7 +198,7 @@ def ensemble_experiment(
     return results
 
 
-def maxmax_experiment(
+def possibilistic_model_exp(
     env_name: str,
     episodes: int,
     num_runs: int = 2,
@@ -228,90 +216,82 @@ def maxmax_experiment(
     results = {}
 
     for mode in ["null", "gaussian", "quantile"]:
-        if mode == "null":
-            probs = [None]  # no rollout_prob
-        else:
-            probs = [0.1]
+        name = mode
+        all_rewards = []
 
-        for p in probs:
-            name = mode if p is None else f"{mode}_{p}"
-            all_rewards = []
+        for run in range(num_runs):
+            print(f"Run [{run + 1}/{num_runs}] ─ mode={name}")
 
-            for run in range(num_runs):
-                print(f"Run [{run + 1}/{num_runs}] ─ mode={name}")
+            env = make_env(env_name)
+            buffer = ReplayBuffer(capacity=100_000)
 
-                env = make_env(env_name)
-                buffer = ReplayBuffer(capacity=100_000)
+            state_dim = env.observation_space.shape[0]
+            action_dim = env.action_space.shape[0]
 
-                state_dim = env.observation_space.shape[0]
-                action_dim = env.action_space.shape[0]
+            online_actor = Actor(state_dim, action_dim).to(DEVICE)
+            target_actor = Actor(state_dim, action_dim).to(DEVICE)
+            target_actor.load_state_dict(online_actor.state_dict())
 
-                online_actor = Actor(state_dim, action_dim).to(DEVICE)
-                target_actor = Actor(state_dim, action_dim).to(DEVICE)
-                target_actor.load_state_dict(online_actor.state_dict())
+            online_critic = SimpleCritic(state_dim, action_dim).to(DEVICE)
+            target_critic = SimpleCritic(state_dim, action_dim).to(DEVICE)
+            target_critic.load_state_dict(online_critic.state_dict())
 
-                online_critic = SimpleCritic(state_dim, action_dim).to(DEVICE)
-                target_critic = SimpleCritic(state_dim, action_dim).to(DEVICE)
-                target_critic.load_state_dict(online_critic.state_dict())
+            actor_opt = optim.Adam(online_actor.parameters(), lr=1e-3)
+            critic_opt = optim.Adam(online_critic.parameters(), lr=1e-3)
 
-                actor_opt = optim.Adam(online_actor.parameters(), lr=1e-3)
-                critic_opt = optim.Adam(online_critic.parameters(), lr=1e-3)
+            f = (
+                ActorCriticLossMaxMaxFix_zerostep
+                if method == "zerostep"
+                else ActorCriticLossMaxMaxFix_onestep
+            )
+            # Model null is equivalent to Actor Critic Loss
+            loss_fn = f(
+                state_dim=state_dim,
+                action_dim=action_dim,
+                batch_size=batch_size,
+                gamma=GAMMA,
+                num_next_state_sample=5,
+                next_state_sample=mode,
+                rollout_depth=1 if mode != "null" else 0,
+                use_min=False,
+                rl_p=0.1,
+            )
 
-                f = (
-                    ActorCriticLossMaxMaxFix_zerostep
-                    if method == "zerostep"
-                    else ActorCriticLossMaxMaxFix_onestep
+            select_action = AC_SelectAction(action_dim=action_dim)
+
+            updates = 200
+            configs = {
+                "action_dim": action_dim,
+                "state_dim": state_dim,
+                "episodes": episodes,
+                "batch_size": batch_size,
+                "eps": 0.1,
+                "tau_soft_update": 0.1,
+                "updates_per_episode": updates,
+            }
+
+            try:
+                rewards = training_loop_ac(
+                    env=env,
+                    replay_buffer=buffer,
+                    select_action_func=select_action,
+                    loss_func=loss_fn,
+                    online_actor=online_actor,
+                    target_actor=target_actor,
+                    actor_optimizer=actor_opt,
+                    online_critic=online_critic,
+                    target_critic=target_critic,
+                    critic_optimizer=critic_opt,
+                    configs=configs,
+                    print_info=True,
                 )
-                loss_fn = f(
-                    state_dim=state_dim,
-                    action_dim=action_dim,
-                    batch_size=batch_size,
-                    gamma=GAMMA,
-                    num_next_state_sample=5,
-                    next_state_sample=mode,
-                    rollout_depth=1 if mode != "null" else 0,
-                    use_min=False,
-                    rollout_prob=p or 0.0,
-                )
+                print(max(rewards))
+                all_rewards.append(rewards)
+            except Exception as e:
+                print(e)
 
-                # 5) select-action fn
-                select_action = AC_SelectAction(action_dim=action_dim)
+            env.close()
 
-                # 6) configs
-                updates = 150 if mode == "null" else 200
-                configs = {
-                    "action_dim": action_dim,
-                    "state_dim": state_dim,
-                    "episodes": episodes,
-                    "batch_size": batch_size,
-                    "eps": 0.1,
-                    "tau_soft_update": 0.1,
-                    "updates_per_episode": updates,
-                }
-
-                # 7) train
-                try:
-                    rewards = training_loop_ac(
-                        env=env,
-                        replay_buffer=buffer,
-                        select_action_func=select_action,
-                        loss_func=loss_fn,
-                        online_actor=online_actor,
-                        target_actor=target_actor,
-                        actor_optimizer=actor_opt,
-                        online_critic=online_critic,
-                        target_critic=target_critic,
-                        critic_optimizer=critic_opt,
-                        configs=configs,
-                        print_info=True,
-                    )
-                    print(max(rewards))
-                    all_rewards.append(rewards)
-                except Exception as e:
-                    print(e)
-
-                env.close()
-
-            results[name] = all_rewards
+        results[name] = all_rewards
 
     return results

@@ -74,7 +74,7 @@ class mean_logvar_maxexpected(Qnet_SelectActionMeta):
         return optimistic_q.argmax().item()
 
 
-class ensemble_action_weighted_sum(Qnet_SelectActionMeta):
+class ensemble_action_maximum_expected(Qnet_SelectActionMeta):
     def __init__(self, action_dim) -> None:
         super().__init__(action_dim)
 
@@ -83,18 +83,21 @@ class ensemble_action_weighted_sum(Qnet_SelectActionMeta):
             state_tensor = (
                 torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(DEVICE)
             )
+
             q_values = torch.stack(
                 [qnet(state_tensor) for qnet in online_qnet.qnets], dim=0
             ).squeeze(1)
 
             possibilities = np.array(online_qnet.possibility)
-            possibilities_normalized = possibilities / (possibilities.sum() + 1e-8)
-            poss_tensor = torch.tensor(
-                possibilities_normalized, dtype=torch.float32, device=q_values.device
-            )
+            possibilities_tensor = torch.tensor(
+                possibilities, dtype=torch.float32, device=q_values.device
+            ).view(-1, 1)
 
-            weighted_q = (q_values * poss_tensor[:, None]).sum(dim=0)
-            action = int(torch.argmax(weighted_q).item())
+            weighted_q = q_values * possibilities_tensor
+
+            max_expected_q = weighted_q.max(dim=0).values
+
+            action = int(torch.argmax(max_expected_q).item())
         return action
 
 

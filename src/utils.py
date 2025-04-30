@@ -1,21 +1,13 @@
-import itertools
-import math
 import os
 import random
-import typing
 from collections import deque
 from datetime import datetime
-from typing import Any, Callable
 
-import gymnasium as gym
 import json_tricks as json
 import matplotlib.pyplot as plt
 import numpy as np
 import readchar
-import torch
-import torch.nn as nn
 from matplotlib import animation
-from torch import optim
 
 
 class ReplayBuffer:
@@ -108,10 +100,6 @@ def avg_results(rawresults, remove_first=0):
 
 
 def visualize_agent(env, online_qnet, select_action, discrete, delay=30):
-    """
-    Runs one episode using the given online_qnet and captures frames for visualization.
-    Then creates and shows an animation.
-    """
     frames = []
     obs, _ = env.reset()
     done = False

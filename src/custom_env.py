@@ -73,35 +73,6 @@ class SparseCartPole(CartPoleEnv):
         return obs, sparse_reward, terminated, truncated, info
 
 
-# class SparseLunarLander(LunarLander):
-#     """
-#     LunarLander environment where reward is sparse.
-#     +1 for successful landing, -1 for crash, 0 otherwise.
-#     Removes shaping rewards for legs, engine firing etc.
-#     """
-#
-#     def step(self, action):
-#         obs, reward, terminated, truncated, info = super().step(action)
-#
-#         # Original reward includes shaping terms.
-#         # Let's make it sparse based only on the final outcome.
-#         sparse_reward = 0.0
-#         if terminated:
-#             if self.game_over:  # Crashed
-#                 sparse_reward = -1.0
-#             elif (
-#                 self.lander.awake
-#             ):  # Landed successfully (check if awake is the right flag)
-#                 # Need to be careful: 'terminated' might be true just from landing.
-#                 # Check velocity conditions if needed for "successful" landing
-#                 # For simplicity, let's assume terminated + not crashed = landed
-#                 sparse_reward = 1.0
-#         # No reward if truncated or episode continues without termination
-#
-#         return obs, sparse_reward, terminated, truncated, info
-#
-
-
 class SparseLunarLander(LunarLander):
     """
     LunarLander environment with minimal shaping:
