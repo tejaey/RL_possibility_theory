@@ -1,10 +1,8 @@
 
 \documentclass[11pt,a4paper]{report}
 
-% Geometry & layout
 \usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2cm, headheight=15pt]{geometry}
 
-% Fonts and math
 \usepackage{amsmath, amssymb, bbm, amsthm}
 
 \newtheorem{lemma}{Lemma}
@@ -24,10 +22,10 @@
 \setlength{\parskip}{\baselineskip}
 \usepackage{fancyhdr}
 \pagestyle{fancy}
-\fancyhf{} % clear default header/footer
-\fancyhead[L]{\leftmark} % section or chapter title
-\fancyhead[R]{\thepage}  % page number
-\renewcommand{\headrulewidth}{0.4pt} % optional: adds a horizontal line in the header
+\fancyhf{} 
+\fancyhead[L]{\leftmark} 
+\fancyhead[R]{\thepage} 
+\renewcommand{\headrulewidth}{0.4pt} 
 
 \setcounter{tocdepth}{2}
 \DeclareMathOperator{\EX}{\mathbb{E}}
@@ -40,14 +38,13 @@
 \newcommand\myworries[1]{\textcolor{red}{#1}}
 \newcommand\profsworries[1]{\textcolor{blue}{#1}}
 
-% \renewcommand\profsworries[1]{}
-% \renewcommand\myworries[1]{}
-% Header
+
+
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[R]{\thepage}
 \fancyhead[L]{\leftmark}
-% Title Page
+
 \begin{document}
 \begin{titlepage}
     \centering
@@ -79,12 +76,12 @@ I am thankful to my friends, who kept me motivated throughout the sometimes chal
 
 I extend my appreciation to my parents for their encouragement and unconditional support during the periods when progress was slow and difficult. I also want to thank my sister, Dhruti, whose exceptional work ethic has been an incredible source of inspiration. \par
 
-% Finally, I would like to thank Daniel, my supervisor at work, for allowing me access to the company GPU to conduct some of the experiments. \par
+
 
 \tableofcontents
-% \listoffigures
-% \listoftables
-% \lstlistoflistings
+
+
+
 
 \chapter{Introduction}
 Reinforcement Learning (RL) has emerged as a powerful paradigm within machine learning, enabling agents to learn optimal decisions in a broad range of environments. It has facilitated superhuman performance in complex games (\cite{silver2017masteringchessshogiselfplay}) and enabled control over robotic agents (\cite{Liu_2021}). The applicability of RL across diverse use cases stems from its core concept: an agent interacts with an environment by performing actions, which transition the agent from its current state to a subsequent state. Throughout this movement, the agent accumulates rewards. To make decisions, the agent employs a policy $\pi$, which maps the current state $s$ to an action $a$. In order to learn effective policies, classic RL algorithms often estimate the expected return the agent anticipates from a state or a state-action pair; these are referred to as $V(s)$ and $Q(s,a)$ respectively.
@@ -385,7 +382,7 @@ The algorithm C51 in \cite{bellemare2017} works by maintaining a probability dis
 \par
 For training, a target distribution is calculated as: \(T(s,a) \overset{D}{=} r + \gamma Z(s', a^*)\) where $a^*$ is the greedy action that maximises $\EX[Z(s', a)]$. \par
 
-% TODO Address this with our algorithm using ensembles. 
+
 One drawback of the approach is that the two different uncertainties cannot be easily decoupled. If information about the epistemic uncertainty of the distribution was available, it would be possible to incentive the agent to explore states with less certainty. The use of probability theory further enforces a frequentest belief on the Q-values. Later, we provide an extension of C51 with the use of possibility theory.  
 
 
@@ -547,7 +544,7 @@ In this method, the action is chosen by combining the mean and the log-variance 
   a^* = \arg\max_{a} \left\{ \mu(s, a) + \beta \cdot \log \sigma^2(s, a) \right\}.
 \]
 Here, \(\beta\) is a hyperparameter that adjusts the influence of the uncertainty (measured by \(\log \sigma^2(s,a)\)) on the action selection. $\beta$ can be interpreted as inducing optimism and providing an exploration bonus to the algorithm (similar to other algorithms such as UCB (\cite{peter2003})) 
-%use of the logarithm helps to stabilize the variance measure, compressing large variance values into a more manageable scale; it also naturally emerges in Gaussian models (as in the expression for differential entropy), making it a justified bonus for exploration when uncertainty is high.
+
 
 \subsubsection{Maximum Expected Value}
 
@@ -596,7 +593,7 @@ When selecting actions, one naturally considers the maximum expected Q-value und
 \[ \bar{Q}(s,a) =\sup_{\theta\in\Theta}\bigl\{\hat{p}_\Theta(\theta)\,Q(s,a\mid\theta)\bigr\}. \]
 Using our finite ensemble, this reduces to
 \[ \bar{Q}(s,a) =\max_{i=1,\dots,N}\bigl\{p_i\,Q_i(s,a)\bigr\}. \]
-% This constants with common methods in ensemble Q-learning such as in Bootstrapped DQN (\cite{osband2016deepexplorationbootstrappeddqn}). In BootstrappedDQN, the model mantains an ensemble of Q-networks and draws a head in each episode uniformly to perform action selection and Q Learning. In contrast, our proposed approach mantains a possibility weight to each network, which is used to optimistically aggregate action values and drive exploration at everystep.  
+
 \section{Bellman Update}
 There are several choices of Bellman update that can be employed to train an ensemble of Q-networks. Here, we explore two different methods: Independent Update and Conservative Ensemble Update. The choice between the two trades off stability and exploration.
 
@@ -632,7 +629,7 @@ The loss provides a likelihood estimate given by
 \[
   \mathcal{L}_i = e^{-L_i}.
 \]
-% (Note: In some formulations, the likelihood is given as \(e^{-L_i}\); please adjust if a different convention is desired.)
+
 
 The new possibility \(\hat{p}_i\) for network \(i\) is estimated by
 \[
@@ -717,11 +714,11 @@ This produces \(K\) distinct targets \(y_1,\dots,y_K\) and hence \(K\) TD‐erro
 \]
 followed by a standard policy gradient update to maximize \(\mathbb E_{s\sim\mathbb B}[\,Q_\theta(s,\mu_\phi(s))]\) with respect to \(\phi\).
 
-% \myworries{The zero‐step update offers several advantages. First, each real transition generates \(K\times n\) additional labelled examples without extra environment interactions, greatly improving sample efficiency. Second, by limiting imagination to a single step, we avoid the compounding errors that afflict longer roll‐outs. Third, sampling neighbours \(s^{*}\) smooths \(Q_\theta\) in the vicinity of observed states, stabilizing both value estimation and policy improvement. Finally, taking the maximum over multiple imagined outcomes implements a form of optimistic safety: only credible high‐value predictions influence the update, reducing the impact of model artifacts.
-% }
-% \par
-% \myworries{However, this approach also introduces new hyperparameters—neighbourhood radius \(\varepsilon\), number of neighbours \(K\), and samples per neighbour \(n\)—which must be carefully tuned: if \(\varepsilon\) is too small, the imagined roll‐outs offer little benefit; if too large, model bias can mislead learning. Moreover, although limited to one step, residual model error still propagates into \(Q_\theta\), potentially skewing estimates. Finally, drawing and evaluating many model samples increases computational cost, though this remains far cheaper than additional real environment steps.
-% }
+
+
+
+
+
 
 
 \section{One–Step Update}
@@ -763,42 +760,42 @@ Training proceeds by minimising the squared error
 \]
 and then updating the policy via
 \(\displaystyle \nabla_\phi \mathbb E_{s\sim\mathbb B}\bigl[Q_\theta(s,\mu_\phi(s))\bigr]\).
-% \section{State Sampling Methods}
-%
-% \subsection{Quantile Networks}
-% Here, the model learns to predict specific quantiles \(\tau\) and \(1-\tau\) over the next-state distribution from the state--action pair \(s,a\); this is represented by the lower and upper bound networks \(q_\tau(s,a)\) and \(q_{1-\tau}(s,a)\) — forming a distribution over next possible states. The next state can be sampled as
-% \[
-%   \hat{s}'_i = q_\tau(s,a) + \Bigl(q_{1-\tau}(s,a) - q_\tau(s,a)\Bigr) \cdot u_i,
-% \]
-% where \(u_i\) is sampled from the uniform distribution \(u_i \sim \mathcal{U}(0,1)\). This method samples a range of plausible next states from the learned quantiles. \par
-%
-% The quantile networks can be trained using the quantile loss as done in \cite{zhu2024maxmax}. For quantile \(\tau\), the loss can be calculated as 
-% \[
-%   L_\tau = \max\Bigl((\tau-1)\bigl(s' - q_\tau(s,a)\bigr),\; \tau\bigl(s' - q_\tau(s,a)\bigr)\Bigr).
-% \]
-% The loss can be backpropagated using gradient descent to update the parameters of the quantile model \(q_\tau\). 
-%
-% \subsection{Mean-Var Network}
-%
-% In this method, we use a neural network to model the Gaussian distribution \[\mathcal{N}(\mu(s,a), \sigma^2(s,a))\] from which the next possible state \(\hat{s}'\) can be drawn. Practically, the network produces estimates for the mean of the next state \(\mu(s,a)\) and the logarithm of the standard deviation, \(\log(\sigma(s,a))\). As is common in the literature, the log of the standard deviation is used to improve numerical stability and ensure the variance remains positive. \par
-%
-% The network can be trained to maximize the likelihood of observing the state \(s'\) from the state--action pair \((s,a)\). This is achieved by minimizing the negative log likelihood (NLL) of the observation under the predicted distribution. The loss is 
-% \[
-%   L = \log(\sigma(s,a)) + \frac{\| s' - \mu(s,a)\|^2}{2\sigma(s,a)^2}.
-% \]
-% Here, we also assume a diagonal covariance matrix for the distribution of next states. \par
-%
-% The imagined state can be sampled as 
-% \[
-%   \hat{s}' = \mu(s,a) + \sigma(s,a) \cdot \epsilon,
-% \]
-% where \(\epsilon \sim \mathcal{N}(0,I)\). \par
-%
-% Using the Mean-Variance method of sampling next possible states means that the agent is fully learning the environment by modeling both the state transitions and reward functions. As a result, we can also perform model-based roll-outs to obtain better reward estimates and improve sample efficiency. This possibilistic approach over next possible states allows us to account for the epistemic uncertainty in the next state transitions with this model-based approach. 
-%
-%
-%
-%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 \section{State Sampling Methods}
 
 For both the aforementioned methods, the next states are possibilistic imagined using either Quantile and Gaussian sampling methods as described here. 
@@ -927,123 +924,123 @@ We evaluated twelve variants of the Possibilistic Q‐Ensemble across each envir
 \end{itemize}
 
  In total, each environment was run with twelve Possibilistic Q‐Ensemble configurations (plus DQN).  Raw results appear in Appendix~\ref{sec:posens-raw}.  DQN results are omitted for Sparse LunarLander, as its performance was substantially worse and obscures the comparison (see Appendix~\ref{sec:posens-raw}).
-%
 
-{ % Start a group to keep \sloppy local
-\sloppy % Relax spacing rules for this figure
+
+{ 
+\sloppy 
 
 \begin{figure}[ht]
   \centering
 
-  % --- Row 1 Description ---
+  
   \par\noindent\textbf{Bellman Target Method}\par\nopagebreak
-  \vspace{0.5em} % Optional small space after row title
+  \vspace{0.5em} 
 
-  % --- Row 1 Figures ---
+  
   \begin{subfigure}[b]{0.24\textwidth}
     \centering
     \includegraphics[width=\textwidth]{images/ens_cartpole_target.png}
-    \caption{CartPole‐v1} % Removed (Target)
-    %\label{fig:ens_cartpole_target}
+    \caption{CartPole‐v1} 
+    
   \end{subfigure}
-  \hfill % Distribute horizontal space
+  \hfill 
   \begin{subfigure}[b]{0.24\textwidth}
     \centering
     \includegraphics[width=\textwidth]{images/ens_lunarlander_target.png}
-    \caption{LunarLander‐v3} % Removed (Target)
-    %\label{fig:ens_lunarlander_target}
+    \caption{LunarLander‐v3} 
+    
   \end{subfigure}
-  \hfill % Distribute horizontal space
+  \hfill 
   \begin{subfigure}[b]{0.24\textwidth}
     \centering
     \includegraphics[width=\textwidth]{images/ens_sparseLun_target.png}
-    \caption{Sparse LunarLander} % Removed (Target)
-    %\label{fig:ens_sparseLun_target}
+    \caption{Sparse LunarLander} 
+    
   \end{subfigure}
-  \hfill % Distribute horizontal space
+  \hfill 
   \begin{subfigure}[b]{0.24\textwidth}
     \centering
     \includegraphics[width=\textwidth]{images/ens_stochasticCartpole_target.png}
-    \caption{Stochastic CartPole} % Removed (Target)
-    %\label{fig:ens_stochasticCartpole_target}
+    \caption{Stochastic CartPole} 
+    
   \end{subfigure}
 
-  \vspace{1em} % Vertical space between rows
+  \vspace{1em} 
 
-  % --- Row 2 Description ---
+  
   \par\noindent\textbf{Possibility Update Method}\par\nopagebreak
-  \vspace{0.5em} % Optional small space after row title
+  \vspace{0.5em} 
 
-  % --- Row 2 Figures ---
+  
   \begin{subfigure}[b]{0.24\textwidth}
     \centering
     \includegraphics[width=\textwidth]{images/ens_cartpole_update.png}
-    \caption{CartPole‐v1} % Removed (TD Error)
-    %\label{fig:ens_cartpole_update}
+    \caption{CartPole‐v1} 
+    
   \end{subfigure}
-  \hfill % Distribute horizontal space
+  \hfill 
   \begin{subfigure}[b]{0.24\textwidth}
     \centering
     \includegraphics[width=\textwidth]{images/ens_lunarlander_update.png}
-    \caption{LunarLander‐v3} % Removed (TD Error)
-    %\label{fig:ens_lunarlander_update}
+    \caption{LunarLander‐v3} 
+    
   \end{subfigure}
-  \hfill % Distribute horizontal space
+  \hfill 
    \begin{subfigure}[b]{0.24\textwidth}
     \centering
     \includegraphics[width=\textwidth]{images/ens_sparseLun_update.png}
-    \caption{Sparse LunarLander} % Removed (TD Error)
-    %\label{fig:ens_sparseLun_update}
+    \caption{Sparse LunarLander} 
+    
   \end{subfigure}
-  \hfill % Distribute horizontal space
+  \hfill 
   \begin{subfigure}[b]{0.24\textwidth}
     \centering
     \includegraphics[width=\textwidth]{images/ens_stochasticCartpole_update.png}
-    \caption{Stochastic CartPole} % Removed (TD Error)
-    %\label{fig:ens_stochasticCartpole_update}
+    \caption{Stochastic CartPole} 
+    
   \end{subfigure}
 
-  \vspace{1em} % Vertical space between rows
+  \vspace{1em} 
 
-  % --- Row 3 Description ---
+  
   \par\noindent\textbf{Action Selection Method}\par\nopagebreak
-  \vspace{0.5em} % Optional small space after row title
+  \vspace{0.5em} 
 
-  % --- Row 3 Figures ---
+  
    \begin{subfigure}[b]{0.24\textwidth}
     \centering
     \includegraphics[width=\textwidth]{images/ens_cartpole_action1.png}
-    \caption{CartPole‐v1} % Removed (Action)
-    %\label{fig:ens_cartpole_action}
+    \caption{CartPole‐v1} 
+    
    \end{subfigure}
-   \hfill % Distribute horizontal space
+   \hfill 
    \begin{subfigure}[b]{0.24\textwidth}
     \centering
     \includegraphics[width=\textwidth]{images/ens_lunarlander_action1.png}
-    \caption{LunarLander‐v3} % Removed (Action)
-    %\label{fig:ens_lunarlander_action}
+    \caption{LunarLander‐v3} 
+    
    \end{subfigure}
-   \hfill % Distribute horizontal space
+   \hfill 
      \begin{subfigure}[b]{0.24\textwidth}
     \centering
     \includegraphics[width=\textwidth]{images/ens_sparseLun_action1.png}
-    \caption{Sparse LunarLander} % Removed (Action)
-    %\label{fig:ens_sparseLun_action}
+    \caption{Sparse LunarLander} 
+    
    \end{subfigure}
-   \hfill % Distribute horizontal space
+   \hfill 
    \begin{subfigure}[b]{0.24\textwidth}
     \centering
     \includegraphics[width=\textwidth]{images/ens_stochasticCartpole_action1.png}
-    \caption{Stochastic CartPole} % Removed (Action)
-    %\label{fig:ens_stochasticCartpole_action}
+    \caption{Stochastic CartPole} 
+    
    \end{subfigure}
 
-  % --- Overall Figure Caption ---
-  \caption{Performance of across methodologies for Possibilistic Ensembles} % Updated main caption
-  \label{fig:ens_combined} % Label for the entire figure
+  
+  \caption{Performance of across methodologies for Possibilistic Ensembles} 
+  \label{fig:ens_combined} 
 \end{figure}
 
-} % End the group where \sloppy is active
+} 
 
 As a whole, the ensemble approach has less variance in cumulative rewards compared to the single-network methods in all environments. At the same time, they exhibit slower learning curves, as all networks in the ensemble must agree before the ensemble as a whole can converge on a policy — this can drive exploration. This is particularly beneficial in the sparse environment of Sparse Lunar Lander, where the ensemble drastically outperforms the single-network methods by enabling more effective exploration. Overall, the ensemble methods demonstrate slightly better asymptotic performance; even after 5000 episodes, the curves continue to trend upward. This trend is especially clear in Lunar Lander and Stochastic CartPole, where ensemble methods outperform single-network approaches and show continued improvement, while the single-network curves plateau.
 
@@ -1192,7 +1189,7 @@ Future work could explore several directions. Given the strong performance of Me
   \State Observe $s_t$, select $a_t=\mu_\phi(s_t)$
   \State Execute $a_t$, observe $(r_t,s_{t+1})$
   \State Store $(s_t,a_t,r_t,s_{t+1})$ in $\mathcal B$
-  %
+  
   \If{$t \bmod l_{\text{train}} = 0$} \Comment{Real‐transition training}
     \State Sample $\{(s_j,a_j,r_j,s'_j)\}_{j=1}^M$ from $\mathcal B$
     \For{$j=1$ to $M$}
@@ -1209,7 +1206,7 @@ Future work could explore several directions. Given the strong performance of Me
     \State $\phi \;\gets\;\phi + \alpha_\phi\,\nabla_\phi\bigl(\tfrac{1}{M}\sum_j Q_\theta(s_j,\mu_\phi(s_j))\bigr)$
     \State $\theta^- \!\gets\! \tau\,\theta + (1-\tau)\,\theta^-$
   \EndIf
-  %
+  
   \If{$t \bmod l_{\text{plan}} = 0$} \Comment{Planning (imagined) step}
     \State Sample $\{(s_j,a_j,r_j,s'_j)\}_{j=1}^M$ from $\mathcal B$
     \State $J_{\text{plan}}\gets 0$
@@ -1252,7 +1249,7 @@ Future work could explore several directions. Given the strong performance of Me
   \State Observe $s_t$, select $a_t=\mu_\phi(s_t)$
   \State Execute $a_t$, observe $(r_t,s_{t+1})$
   \State Store $(s_t,a_t,r_t,s_{t+1})$ in $\mathcal B$
-  %
+  
   \If{$t \bmod l_{\text{train}} = 0$} \Comment{Real‐transition training}
     \State Sample $\{(s_j,a_j,r_j,s'_j)\}_{j=1}^M$ from $\mathcal B$
     \For{$j=1$ to $M$}
@@ -1269,7 +1266,7 @@ Future work could explore several directions. Given the strong performance of Me
     \State $\phi \;\gets\;\phi + \alpha_\phi\,\nabla_\phi\bigl(\tfrac{1}{M}\sum_j Q_\theta(s_j,\mu_\phi(s_j))\bigr)$
     \State $\theta^- \!\gets\! \tau\,\theta + (1-\tau)\,\theta^-$
   \EndIf
-  %
+  
   \If{$t \bmod l_{\text{plan}} = 0$} \Comment{Planning step}
     \State Sample $\{(s_j,a_j,r_j,s'_j)\}_{j=1}^M$ from $\mathcal B$
     \State $J_{\text{plan}}\gets 0$
@@ -1368,7 +1365,7 @@ This is the unique maximizer of \( g(q) \) over \( \mathbb{R} \), as \( g''(q) <
   
 \section*{Kullback-Leibler Divergence} \label{appendix:kl}
 In \cite{cover1991}, the relative entropy (or Kullback-Leibler divergence) is introduced as the expected logarithm of the likelihood ratio. It measures the inefficiency of assuming that the distribution is \(q\) when the true distribution is \(p\). 
-%For instance, if the true distribution of a random variable is known, the optimal code will have an average description length of \(H(p)\). However, if one uses a code based on distribution \(q\), the average length increases to \(H(p) + D(p\|q)\).
+
 
 \subsection*{Discrete Case}
 For discrete probability mass functions \(p(x)\) and \(q(x)\), the KL divergence is defined as
