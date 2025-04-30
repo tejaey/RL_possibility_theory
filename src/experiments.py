@@ -1,62 +1,37 @@
 import json
-from PIL.Image import Exif
+import logging
+
+import gymnasium as gym
+import matplotlib.pyplot as plt
 from gymnasium.spaces import discrete
+from matplotlib import animation
+from PIL.Image import Exif
+from torch import optim, utils
 from torch.nn import GaussianNLLLoss
 from torch.optim import optimizer
+
 import action_selection
-from qnets import (
-    EnsembleCritic,
-    EnsembleDQN,
-    MeanVarianceQNetwork,
-    SimpleDQN,
-    Actor,
-    SimpleCritic,
-    QuantileModel,
-    EnsembleQuantileModels,
-)
-from loss_func import (
-    td_loss_meta,
-    actor_critic_loss,
-    actor_critic_loss_maxmax,
-    td_loss_ensemble_grad_updated2,
-    td_loss_ensemble,
-    ActorCriticLossMaxMaxFix_onestep,
-    ActorCriticLossMaxMaxFix_zerostep,
-)
-from loss_func import *
-from action_selection import (
-    Qnet_SelectActionMeta,
-    mean_logvar_actionselection,
-    mean_logvar_maxexpected,
-    select_action_eps_greedy_meanvarQnet,
-)
-from action_selection import (
-    AC_SelectAction,
-    ensemble_action_majority_voting,
-    ensemble_action_weighted_sum,
-    single_dqn_eps_greedy,
-)
-from utils import (
-    log_results,
-    ReplayBuffer,
-    soft_update,
-    hard_target_update,
-    action_array,
-    plot_improved_rewards,
-    visualize_agent,
-    select_combination,
-)
-import gymnasium as gym
-from torch import optim, utils
-import logging
-import matplotlib.pyplot as plt
-from matplotlib import animation
-
-from custom_env import SparseHalfCheetah, SparseWalker2DEnv, make_env
+from action_selection import (AC_SelectAction, Qnet_SelectActionMeta,
+                              ensemble_action_majority_voting,
+                              ensemble_action_weighted_sum,
+                              mean_logvar_actionselection,
+                              mean_logvar_maxexpected,
+                              select_action_eps_greedy_meanvarQnet,
+                              single_dqn_eps_greedy)
 from config import DEVICE
-
-from training_loop import training_loop_qn, training_loop_ac
-from custom_env import make_env
+from custom_env import SparseHalfCheetah, SparseWalker2DEnv, make_env
+from loss_func import *
+from loss_func import (ActorCriticLossMaxMaxFix_onestep,
+                       ActorCriticLossMaxMaxFix_zerostep, actor_critic_loss,
+                       actor_critic_loss_maxmax, td_loss_ensemble,
+                       td_loss_ensemble_grad_updated2, td_loss_meta)
+from qnets import (Actor, EnsembleCritic, EnsembleDQN, EnsembleQuantileModels,
+                   MeanVarianceQNetwork, QuantileModel, SimpleCritic,
+                   SimpleDQN)
+from training_loop import training_loop_ac, training_loop_qn
+from utils import (ReplayBuffer, action_array, hard_target_update, log_results,
+                   plot_improved_rewards, select_combination, soft_update,
+                   visualize_agent)
 
 
 def mean_var_experiment(

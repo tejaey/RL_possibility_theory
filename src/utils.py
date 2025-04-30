@@ -1,19 +1,21 @@
-import gymnasium as gym
-import os
-import json_tricks as json
-from matplotlib import animation
-import torch, random
-from torch import optim
-import numpy as np
-import torch.nn as nn
-from collections import deque
-import typing
-from typing import Callable, Any
-import matplotlib.pyplot as plt
-import math
 import itertools
+import math
+import os
+import random
+import typing
+from collections import deque
 from datetime import datetime
+from typing import Any, Callable
+
+import gymnasium as gym
+import json_tricks as json
+import matplotlib.pyplot as plt
+import numpy as np
 import readchar
+import torch
+import torch.nn as nn
+from matplotlib import animation
+from torch import optim
 
 
 class ReplayBuffer:

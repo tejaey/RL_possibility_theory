@@ -1,13 +1,14 @@
+import random
+
 import gymnasium as gym
-from gymnasium.envs.mujoco.walker2d_v5 import Walker2dEnv
-from gymnasium.envs.mujoco.half_cheetah_v5 import HalfCheetahEnv
-from gymnasium.envs.mujoco.hopper_v5 import HopperEnv
+import numpy as np
+from gymnasium import spaces
 from gymnasium.envs.box2d.lunar_lander import LunarLander
 from gymnasium.envs.classic_control.cartpole import CartPoleEnv
-from gymnasium import spaces
+from gymnasium.envs.mujoco.half_cheetah_v5 import HalfCheetahEnv
+from gymnasium.envs.mujoco.hopper_v5 import HopperEnv
+from gymnasium.envs.mujoco.walker2d_v5 import Walker2dEnv
 from gymnasium.utils import seeding
-import random
-import numpy as np
 
 
 class SparseWalker2DEnv(Walker2dEnv):

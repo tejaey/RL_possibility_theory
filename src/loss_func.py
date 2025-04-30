@@ -1,21 +1,19 @@
-from typing import Literal
-import gymnasium
-import torch.nn.functional as F
-import torch, random, math
-from torch import FloatType, optim
-import numpy as np
-import torch.nn as nn
-from abc import ABC, abstractmethod
 import logging
+import math
+import random
+from abc import ABC, abstractmethod
+from typing import Literal
 
-from qnets import (
-    StdPredictor,
-    QuantileModel,
-    RewardModel,
-    EnsembleQuantileModels,
-    MeanStdPredictor,
-)
+import gymnasium
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch import FloatType, optim
+
 from config import DEVICE
+from qnets import (EnsembleQuantileModels, MeanStdPredictor, QuantileModel,
+                   RewardModel, StdPredictor)
 
 
 def unpack_batch(batch):

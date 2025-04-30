@@ -1,6 +1,6 @@
+from config import DEVICE
 from experiments import maxmax_experiment
 from utils import log_results
-from config import DEVICE
 
 episodes = 1
 num_runs = 1

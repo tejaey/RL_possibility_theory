@@ -1,7 +1,9 @@
-from abc import ABC, abstractmethod
 import random
+from abc import ABC, abstractmethod
+
 import numpy as np
 import torch
+
 from config import DEVICE
 
 

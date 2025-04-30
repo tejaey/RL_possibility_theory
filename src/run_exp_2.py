@@ -1,9 +1,11 @@
-import os
-import torch
 import multiprocessing as mp
-from experiments import mean_var_experiment, ensemble_experiment
-from utils import log_results
+import os
+
+import torch
+
 from config import DEVICE
+from experiments import ensemble_experiment, mean_var_experiment
+from utils import log_results
 
 num_runs = 1
 episodes = 1
