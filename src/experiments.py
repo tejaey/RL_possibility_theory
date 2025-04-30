@@ -20,7 +20,8 @@ from loss_func import (
     actor_critic_loss_maxmax,
     td_loss_ensemble_grad_updated2,
     td_loss_ensemble,
-    ActorCriticLossMaxMaxFix,
+    ActorCriticLossMaxMaxFix_onestep,
+    ActorCriticLossMaxMaxFix_zerostep,
 )
 from loss_func import *
 from action_selection import (
@@ -55,20 +56,21 @@ from custom_env import SparseHalfCheetah, SparseWalker2DEnv, make_env
 from config import DEVICE
 
 from training_loop import training_loop_qn, training_loop_ac
+from custom_env import make_env
 
 
-## 1st experiment - needs to be run with LunarLander and the CartPole
 def mean_var_experiment(
     env_name, episodes, batch_size=256, hidden_dim=128, num_runs=1, GAMMA=0.99
 ) -> dict:
-    env = gym.make(env_name)
+    # env = gym.make(env_name)
+    env = make_env(env_name)
     state_dim: int = env.observation_space.shape[0]
     action_dim: int = env.action_space.n
 
     loss_functions = []
     action_selection_methods = []
 
-    for beta in [-0.5, -0.25, 0, 0.25, 0.5]:
+    for beta in [-0.25, 0, 0.25, 0.5]:
         action_selection_methods.append(
             (
                 mean_logvar_actionselection(action_dim=action_dim, beta=beta),
@@ -83,19 +85,18 @@ def mean_var_experiment(
     loss_functions.append(
         (distributional_qn_loss(GAMMA=GAMMA, method="Dkl"), "dkl_loss")
     )
-    loss_functions.append(
-        (distributional_qn_loss(GAMMA=GAMMA, method="Wasserstein"), "wasserstein_loss")
-    )
+
     experimental_results = {}
 
     configs = {
         "action_dim": action_dim,
         "state_dim": state_dim,
         "episodes": episodes,
+        "batch_size": batch_size,
         "gamma": GAMMA,
         "eps": 0.1,
         "tau_soft_update": 0.05,
-        "update_steps": 1,
+        "update_steps": 3,
     }
     for loss_function in loss_functions:
         for action_selection_method in action_selection_methods:
@@ -110,7 +111,7 @@ def mean_var_experiment(
                     state_dim=state_dim, action_dim=action_dim, hidden_dim=hidden_dim
                 ).to(DEVICE)
                 hard_target_update(online_network, target_network)
-                optimizers = optim.Adam(online_network.parameters(), lr=1e-3)
+                optimizers = optim.Adam(online_network.parameters(), lr=1e-2)
                 replay_buffer = ReplayBuffer()
                 try:
                     print(f"Run: {exp_n} | name {name}")
@@ -123,7 +124,7 @@ def mean_var_experiment(
                         select_action=action_selection_method[0],
                         replay_buffer=replay_buffer,
                         configs=configs,
-                        print_info=False,
+                        print_info=True,
                         discrete=True,
                     )
                     print(max(rewards))
@@ -144,7 +145,8 @@ def ensemble_experiment(
     batch_size=128,
 ) -> dict:
     # Create environment
-    env = gym.make(env_name)
+    env = make_env(env_name)
+    # env = gym.make(env_name)
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.n
 
@@ -161,15 +163,6 @@ def ensemble_experiment(
             )
             loss_configs.append((loss_fn, name))
 
-    for beta in [0.1, 0.01]:
-        for alpha in [0.2, 0.1]:
-            name = f"td_ensemble_grad_beta{beta}_alpha{1 - alpha}"
-            loss_fn = td_loss_ensemble_grad(
-                GAMMA=GAMMA, BETA=beta, ALPHA=alpha, normalise=False
-            )
-            loss_configs.append((loss_fn, name))
-
-    # 2) Action selection methods
     action_methods = [
         (ensemble_action_weighted_sum(action_dim), "weighted_sum"),
         (ensemble_action_majority_voting(action_dim), "majority_vote"),
@@ -184,17 +177,18 @@ def ensemble_experiment(
         "batch_size": batch_size,
         "eps": 0.1,
         "tau_soft_update": 0.05,
-        "update_steps": 8,
+        "update_steps": 2,
     }
 
-    # 3) Run experiments
+    t = 0
     for loss_fn, loss_name in loss_configs:
         for act_fn, act_name in action_methods:
             combo = f"{loss_name}_{act_name}"
             all_rewards = []
 
             for run in range(num_runs):
-                print(f"Running {combo}, run {run + 1}/{num_runs}")
+                t += 1
+                print(f"Running {combo}, run {run + 1}/{num_runs}, number: {t}")
 
                 # Instantiate ensembles
                 online_qnet = EnsembleDQN(
@@ -228,7 +222,7 @@ def ensemble_experiment(
                         select_action=act_fn,
                         replay_buffer=buffer,
                         configs=configs,
-                        print_info=False,
+                        print_info=True,
                         discrete=True,
                     )
                     print(max(rewards))
@@ -247,6 +241,7 @@ def maxmax_experiment(
     num_runs: int = 2,
     GAMMA: float = 0.99,
     batch_size: int = 128,
+    method: Literal["onestep", "zerostep"] = "onestep",
 ) -> dict:
     """
     Runs max-max actor-critic experiments over:
@@ -261,24 +256,21 @@ def maxmax_experiment(
         if mode == "null":
             probs = [None]  # no rollout_prob
         else:
-            probs = [0.1, 0.5, 0.9]
+            probs = [0.1]
 
         for p in probs:
-            # build a descriptive name
             name = mode if p is None else f"{mode}_{p}"
             all_rewards = []
 
             for run in range(num_runs):
                 print(f"Run [{run + 1}/{num_runs}] ─ mode={name}")
 
-                # 1) env & replay buffer
-                env = gym.make(env_name)
+                env = make_env(env_name)
                 buffer = ReplayBuffer(capacity=100_000)
 
                 state_dim = env.observation_space.shape[0]
                 action_dim = env.action_space.shape[0]
 
-                # 2) networks
                 online_actor = Actor(state_dim, action_dim).to(DEVICE)
                 target_actor = Actor(state_dim, action_dim).to(DEVICE)
                 target_actor.load_state_dict(online_actor.state_dict())
@@ -287,12 +279,15 @@ def maxmax_experiment(
                 target_critic = SimpleCritic(state_dim, action_dim).to(DEVICE)
                 target_critic.load_state_dict(online_critic.state_dict())
 
-                # 3) optimizers
                 actor_opt = optim.Adam(online_actor.parameters(), lr=1e-3)
                 critic_opt = optim.Adam(online_critic.parameters(), lr=1e-3)
 
-                # 4) loss function with rollout_prob p
-                loss_fn = ActorCriticLossMaxMaxFix(
+                f = (
+                    ActorCriticLossMaxMaxFix_zerostep
+                    if method == "zerostep"
+                    else ActorCriticLossMaxMaxFix_onestep
+                )
+                loss_fn = f(
                     state_dim=state_dim,
                     action_dim=action_dim,
                     batch_size=batch_size,
@@ -308,7 +303,7 @@ def maxmax_experiment(
                 select_action = AC_SelectAction(action_dim=action_dim)
 
                 # 6) configs
-                updates = 200 if mode == "null" else 500
+                updates = 150 if mode == "null" else 200
                 configs = {
                     "action_dim": action_dim,
                     "state_dim": state_dim,
@@ -333,7 +328,7 @@ def maxmax_experiment(
                         target_critic=target_critic,
                         critic_optimizer=critic_opt,
                         configs=configs,
-                        print_info=False,
+                        print_info=True,
                     )
                     print(max(rewards))
                     all_rewards.append(rewards)
@@ -345,27 +340,3 @@ def maxmax_experiment(
             results[name] = all_rewards
 
     return results
-
-
-if __name__ == "__main__":
-    episodes = 20000
-    num_runs = 2
-    for env_name in ["HalfCheetah-v5", "Walker2d-v5", "Hopper-v5"]:
-        game_results = maxmax_experiment(env_name, episodes=episodes, num_runs=num_runs)
-        log_results(game_results, env_name)
-
-    num_runs = 2
-    episodes = 10000
-    for env_name in ["CartPole-v1", "LunarLander-v3"]:
-        game_results = ensemble_experiment(
-            env_name, episodes=episodes, num_ensemble=3, num_runs=num_runs
-        )
-        log_results(game_results, env_name + "_3_net")
-        game_results = ensemble_experiment(
-            env_name, episodes=episodes, num_ensemble=5, num_runs=num_runs
-        )
-        log_results(game_results, env_name + "_5_net")
-        game_results = mean_var_experiment(
-            env_name, episodes=episodes, num_runs=num_runs
-        )
-        log_results(game_results, env_name)

@@ -94,14 +94,14 @@ def training_loop_qn(
                     target_qnet=target_qnet,
                     optimizers=optimizers,
                 )
-                if print_info:
-                    print(f"Count :{count} Loss:{loss}")
+                # if print_info:
+                #     print(f"Count :{count} Loss:{loss}")
                 soft_update(
                     target=target_qnet,
                     online=online_qnet,
                     tau=configs.get("tau_soft_update", 0.05),
                 )
-        if print_info:
+        if print_info and episode % 20 == 0:
             print(f"Episode: {episode} | Rewards: {episode_reward} LOL")
 
         rewards.append(episode_reward)
@@ -181,7 +181,7 @@ def training_loop_ac(
             tau=configs.get("tau_soft_update", 0.005),
         )
 
-        if print_info:
+        if print_info and ep % 10 == 0:
             print(f"Episode: {ep} | Reward: {episode_reward}")
         rewards.append(episode_reward)
     return rewards

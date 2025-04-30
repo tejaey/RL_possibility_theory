@@ -1,6 +1,6 @@
 import gymnasium as gym
 import os
-import json
+import json_tricks as json
 from matplotlib import animation
 import torch, random
 from torch import optim
@@ -70,7 +70,7 @@ def plot_improved_rewards(
 
     plt.xlabel("Episodes", fontsize=14)
     plt.ylabel("Rewards", fontsize=14)
-    plt.title(f"{game} Rewards Over Episodes (Smoothed)", fontsize=16)
+    plt.title(f"{game} Rewards Over Episodes", fontsize=16)
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.legend(loc="upper left", fontsize=12)
     plt.tight_layout()
